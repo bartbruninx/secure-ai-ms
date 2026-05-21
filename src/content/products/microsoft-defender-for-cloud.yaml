@@ -1,0 +1,15 @@
+title: Microsoft Defender for Cloud
+vendor: microsoft
+summary: |
+  Cloud-native application protection platform (CNAPP) that unifies cloud
+  security posture management (CSPM) and cloud workload protection (CWP) for
+  resources across Azure, AWS, GCP, and on-premises — including AI workloads.
+url: https://learn.microsoft.com/azure/defender-for-cloud/defender-for-cloud-introduction
+categories:
+  - ai-posture
+status: draft
+lastReviewed: 2026-05-21
+sources:
+  - title: What is Microsoft Defender for Cloud?
+    url: https://learn.microsoft.com/azure/defender-for-cloud/defender-for-cloud-introduction
+    accessedOn: 2026-05-21
