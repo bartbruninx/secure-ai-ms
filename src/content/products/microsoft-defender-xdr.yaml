@@ -1,0 +1,18 @@
+title: Microsoft Defender XDR
+vendor: microsoft
+role: security-control
+primaryPhases:
+  - secure
+summary: >-
+  Unified extended detection and response across identities, endpoints, email,
+  cloud apps and AI agents. Surfaces prompt-injection, anomalous agent
+  behaviour and exfiltration attempts as incidents alongside the rest of the
+  SOC's signal.
+url: https://learn.microsoft.com/en-us/defender-xdr/
+categories:
+  - threat-protection
+  - monitoring
+status: published
+sources:
+  - title: Microsoft Defender XDR documentation
+    url: https://learn.microsoft.com/en-us/defender-xdr/

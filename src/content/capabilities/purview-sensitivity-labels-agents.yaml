@@ -1,0 +1,13 @@
+title: Sensitivity labels for agent outputs
+product: microsoft-purview
+phase: govern
+summary: >-
+  Sensitivity labels applied to source content inherit into the answers an
+  agent produces, so protected documents don't shed their classification
+  when paraphrased through Copilot.
+categories:
+  - data-protection
+status: published
+sources:
+  - title: Sensitivity labels in Microsoft Purview
+    url: https://learn.microsoft.com/en-us/purview/sensitivity-labels

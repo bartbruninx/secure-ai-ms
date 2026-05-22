@@ -1,0 +1,19 @@
+title: Microsoft Agent 365
+vendor: microsoft
+role: runtime-platform
+primaryPhases:
+  - observe
+  - govern
+summary: >-
+  The control plane for deployed agents. Provides a unified agent inventory,
+  Entra Agent ID, audit logging and usage analytics across Copilot Studio,
+  M365 Copilot and partner agents running in the tenant.
+url: https://www.microsoft.com/en-us/microsoft-365/agent-365
+categories:
+  - identity
+  - monitoring
+  - governance
+status: published
+sources:
+  - title: Microsoft Agent 365 overview
+    url: https://www.microsoft.com/en-us/microsoft-365/agent-365

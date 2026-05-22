@@ -1,0 +1,91 @@
+---
+/**
+ * Table primitive.
+ *
+ * Renders a semantic <table> wrapped in a horizontal scroll container so it
+ * stays usable on narrow viewports without JS. Styling is driven by tokens.
+ *
+ * Usage:
+ *   <Table>
+ *     <thead><tr><th>...</th></tr></thead>
+ *     <tbody>...</tbody>
+ *   </Table>
+ */
+
+type Density = 'compact' | 'comfortable';
+
+interface Props {
+  density?: Density;
+  /** Optional accessible caption / label. */
+  label?: string;
+}
+
+const { density = 'comfortable', label } = Astro.props;
+---
+
+<div class="table-scroll" role="region" aria-label={label}>
+  <table class="table" data-density={density}>
+    <slot />
+  </table>
+</div>
+
+<style>
+  .table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--fs-sm);
+    color: var(--fg-default);
+  }
+
+  .table :global(thead th) {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fg-muted);
+    background: var(--bg-surface-2);
+    border-bottom: 1px solid var(--border);
+    padding: var(--s-3) var(--s-4);
+    white-space: nowrap;
+  }
+
+  .table :global(tbody td) {
+    padding: var(--s-3) var(--s-4);
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .table[data-density="compact"] :global(thead th),
+  .table[data-density="compact"] :global(tbody td) {
+    padding: var(--s-2) var(--s-3);
+  }
+
+  .table :global(tbody tr:last-child td) {
+    border-bottom: 0;
+  }
+
+  .table :global(tbody tr:hover td) {
+    background: var(--bg-surface-2);
+  }
+
+  /* Section header row — e.g. group label across all columns. */
+  .table :global(tbody tr.section td) {
+    background: var(--bg-inset);
+    font-weight: var(--fw-semibold);
+    color: var(--fg-default);
+    border-top: 1px solid var(--border);
+  }
+</style>

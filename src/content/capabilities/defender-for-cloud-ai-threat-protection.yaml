@@ -1,0 +1,15 @@
+title: AI threat protection for Azure workloads
+product: microsoft-defender-for-cloud
+phase: secure
+summary: >-
+  Defender for Cloud's AI plan watches Azure AI Foundry and Azure OpenAI
+  deployments for jailbreak attempts, sensitive-data exposure in prompts,
+  anomalous fine-tuning activity and misconfigured AI resources.
+categories:
+  - threat-protection
+  - ai-safety
+  - posture-management
+status: published
+sources:
+  - title: AI threat protection in Microsoft Defender for Cloud
+    url: https://learn.microsoft.com/en-us/azure/defender-for-cloud/ai-threat-protection

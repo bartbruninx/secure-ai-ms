@@ -1,0 +1,28 @@
+---
+type Size = 'sm' | 'md' | 'lg' | 'xl';
+
+interface Props {
+  size?: Size;
+  as?: keyof HTMLElementTagNameMap;
+}
+
+const { size = 'lg', as: Tag = 'div' } = Astro.props;
+---
+
+<Tag class="container" data-size={size}><slot /></Tag>
+
+<style>
+  .container {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline: var(--s-5);
+  }
+  .container[data-size="sm"] { max-width: var(--container-sm); }
+  .container[data-size="md"] { max-width: var(--container-md); }
+  .container[data-size="lg"] { max-width: var(--container-lg); }
+  .container[data-size="xl"] { max-width: var(--container-xl); }
+
+  @media (max-width: 640px) {
+    .container { padding-inline: var(--s-4); }
+  }
+</style>

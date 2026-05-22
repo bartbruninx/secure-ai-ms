@@ -1,0 +1,875 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Container from '../components/layout/Container.astro';
+import Stack from '../components/layout/Stack.astro';
+import Cluster from '../components/layout/Cluster.astro';
+import Card from '../components/primitives/Card.astro';
+import Badge from '../components/primitives/Badge.astro';
+import Breadcrumbs from '../components/primitives/Breadcrumbs.astro';
+import { base, productHref, capabilityHref } from '../lib/urls';
+import Table from '../components/primitives/Table.astro';
+import { indexCapabilitiesByProduct } from '../lib/coverage';
+import { PHASE_META, PHASES_ORDERED } from '../lib/phases';
+import type { LifecyclePhase } from '../content.config';
+
+// ── Load collections ────────────────────────────────────────────────────
+const [vendors, categories, licenses, products, capabilities] = await Promise.all([
+  getCollection('vendors'),
+  getCollection('categories'),
+  getCollection('licenses'),
+  getCollection('products'),
+  getCollection('capabilities'),
+]);
+
+const vendorById = new Map(vendors.map((v) => [v.id, v]));
+const categoryById = new Map(categories.map((c) => [c.id, c]));
+const licenseById = new Map(licenses.map((l) => [l.id, l]));
+
+const capsByProduct = indexCapabilitiesByProduct(capabilities);
+
+const statusTone = (s: 'published' | 'draft' | 'deprecated') =>
+  s === 'published' ? 'success' : s === 'draft' ? 'warning' : 'neutral';
+
+// ── Pre-compute per-product rows ────────────────────────────────────────
+interface CapabilityRow {
+  id: string;
+  title: string;
+  summary?: string;
+  status: 'published' | 'draft' | 'deprecated';
+  phase: LifecyclePhase;
+  supportingPhases: LifecyclePhase[];
+  categories: Array<{ id: string; title: string }>;
+  licenses: Array<{ id: string; title: string; url?: string; required: boolean }>;
+  sources: Array<{ title: string; url: string }>;
+  /** Pre-joined filter strings for data-* attributes. */
+  filterPhases: string;
+  filterCategories: string;
+  filterLicenses: string;
+}
+
+interface ProductRow {
+  id: string;
+  title: string;
+  vendorTitle?: string;
+  vendorUrl?: string;
+  summary?: string;
+  url?: string;
+  status: 'published' | 'draft' | 'deprecated';
+  categories: Array<{ id: string; title: string }>;
+  sources: Array<{ title: string; url: string }>;
+  capabilities: CapabilityRow[];
+  /** Union of phases across owned capabilities (incl. supporting). */
+  filterPhases: string;
+  /** Union of category ids across product + owned capabilities. */
+  filterCategories: string;
+  /** Union of license ids across owned capabilities. */
+  filterLicenses: string;
+  /** Union of statuses across product + owned capabilities. */
+  filterStatuses: string;
+}
+
+const resolveCategories = (refs: Array<{ id: string }>) =>
+  refs
+    .map((ref) => {
+      const c = categoryById.get(ref.id);
+      return c ? { id: c.id, title: c.data.title } : null;
+    })
+    .filter((c): c is { id: string; title: string } => c !== null);
+
+const productRows: ProductRow[] = products
+  .map((product) => {
+    const vendor = vendorById.get(product.data.vendor.id);
+    const caps = (capsByProduct.get(product.id) ?? []).slice().sort((a, b) =>
+      a.data.title.localeCompare(b.data.title),
+    );
+
+    const capabilities: CapabilityRow[] = caps.map((cap) => {
+      const phases = [cap.data.phase, ...cap.data.supportingPhases];
+      const catIds = cap.data.categories.map((c) => c.id);
+      const licIds = cap.data.licenses.map((l) => l.license.id);
+      return {
+        id: cap.id,
+        title: cap.data.title,
+        summary: cap.data.summary,
+        status: cap.data.status,
+        phase: cap.data.phase,
+        supportingPhases: cap.data.supportingPhases,
+        categories: resolveCategories(cap.data.categories),
+        licenses: cap.data.licenses.map((l) => {
+          const lic = licenseById.get(l.license.id);
+          return {
+            id: l.license.id,
+            title: lic?.data.title ?? l.license.id,
+            url: lic?.data.url,
+            required: l.required,
+          };
+        }),
+        sources: cap.data.sources.map((s) => ({ title: s.title, url: s.url })),
+        filterPhases: phases.join(' '),
+        filterCategories: catIds.join(' '),
+        filterLicenses: licIds.join(' '),
+      };
+    });
+
+    const productPhaseUnion = new Set<string>();
+    const productCatUnion = new Set<string>(product.data.categories.map((c) => c.id));
+    const productLicUnion = new Set<string>();
+    const productStatusUnion = new Set<string>([product.data.status]);
+    for (const cap of capabilities) {
+      productStatusUnion.add(cap.status);
+      cap.filterPhases.split(' ').filter(Boolean).forEach((p) => productPhaseUnion.add(p));
+      cap.filterCategories.split(' ').filter(Boolean).forEach((c) => productCatUnion.add(c));
+      cap.filterLicenses.split(' ').filter(Boolean).forEach((l) => productLicUnion.add(l));
+    }
+
+    return {
+      id: product.id,
+      title: product.data.title,
+      vendorTitle: vendor?.data.title,
+      vendorUrl: vendor?.data.url,
+      summary: product.data.summary,
+      url: product.data.url,
+      status: product.data.status,
+      categories: resolveCategories(product.data.categories),
+      sources: product.data.sources.map((s) => ({ title: s.title, url: s.url })),
+      capabilities,
+      filterPhases: [...productPhaseUnion].join(' '),
+      filterCategories: [...productCatUnion].join(' '),
+      filterLicenses: [...productLicUnion].join(' '),
+      filterStatuses: [...productStatusUnion].join(' '),
+    };
+  })
+  .sort((a, b) => {
+    const va = a.vendorTitle ?? '';
+    const vb = b.vendorTitle ?? '';
+    if (va !== vb) return va.localeCompare(vb);
+    return a.title.localeCompare(b.title);
+  });
+
+// ── Filter facet lists (for the toolbar) ────────────────────────────────
+const allCategoryIds = new Set<string>();
+const allLicenseIds = new Set<string>();
+const allStatuses = new Set<string>();
+for (const row of productRows) {
+  row.filterCategories.split(' ').filter(Boolean).forEach((c) => allCategoryIds.add(c));
+  row.filterLicenses.split(' ').filter(Boolean).forEach((l) => allLicenseIds.add(l));
+  row.filterStatuses.split(' ').filter(Boolean).forEach((s) => allStatuses.add(s));
+}
+const filterCategories = [...allCategoryIds]
+  .map((id) => categoryById.get(id))
+  .filter((c): c is NonNullable<typeof c> => Boolean(c))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+const filterLicenses = [...allLicenseIds]
+  .map((id) => licenseById.get(id))
+  .filter((l): l is NonNullable<typeof l> => Boolean(l))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+const filterStatuses = [...allStatuses].sort();
+
+const productAnchor = (id: string) => `product-${id.replace(/[^a-z0-9-]/gi, '-')}`;
+
+// Short host label for source chips, e.g. "learn.microsoft.com"
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+};
+---
+
+<BaseLayout
+  title="Products"
+  description="Every Microsoft product tracked on this site, with all its capabilities and direct links to Microsoft Learn references."
+>
+  <Container size="xl">
+    <Breadcrumbs
+      items={[
+        { label: 'Dashboard', href: base },
+        { label: 'Products' },
+      ]}
+    />
+    <section class="hero">
+      <Stack space="4">
+        <h1>Products and capabilities</h1>
+        <p class="lede">
+          A flat view of every Microsoft product we track and its capabilities,
+          with direct links to the Microsoft Learn references for each.
+        </p>
+      </Stack>
+    </section>
+
+    {/* ── Filter toolbar (client-side, progressive) ─────────────── */}
+    <section class="section filter-bar" aria-labelledby="filter-heading">
+      <Stack space="3">
+        <Cluster space="3" justify="between" align="baseline">
+          <span class="eyebrow" id="filter-heading">Filter</span>
+          <Cluster space="2">
+            <span class="filter-count" id="filter-count" aria-live="polite">
+              Showing all {productRows.length} {productRows.length === 1 ? 'product' : 'products'}
+            </span>
+            <button type="button" class="filter-reset" id="filter-reset">Reset</button>
+          </Cluster>
+        </Cluster>
+        <div class="filter-groups">
+          <div class="filter-group" data-facet="phase">
+            <span class="filter-label">Phase</span>
+            <div class="filter-chips" role="group" aria-label="Filter by lifecycle phase">
+              {PHASES_ORDERED.map((p) => (
+                <label class="chip" style={`--chip-accent: ${p.colorVar}`}>
+                  <input type="checkbox" name="phase" value={p.id} />
+                  <span class="chip-dot" aria-hidden="true"></span>
+                  <span>{p.title}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          {filterCategories.length > 0 && (
+            <div class="filter-group" data-facet="category">
+              <span class="filter-label">Category</span>
+              <div class="filter-chips" role="group" aria-label="Filter by category">
+                {filterCategories.map((c) => (
+                  <label class="chip">
+                    <input type="checkbox" name="category" value={c.id} />
+                    <span>{c.data.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          {filterLicenses.length > 0 && (
+            <div class="filter-group" data-facet="license">
+              <span class="filter-label">License</span>
+              <div class="filter-chips" role="group" aria-label="Filter by license">
+                {filterLicenses.map((l) => (
+                  <label class="chip">
+                    <input type="checkbox" name="license" value={l.id} />
+                    <span>{l.data.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          {filterStatuses.length > 0 && (
+            <div class="filter-group" data-facet="status">
+              <span class="filter-label">Status</span>
+              <div class="filter-chips" role="group" aria-label="Filter by status">
+                {filterStatuses.map((s) => (
+                  <label class="chip">
+                    <input type="checkbox" name="status" value={s} />
+                    <span>{s}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </Stack>
+    </section>
+
+    {/* ── Jump TOC ─────────────────────────────────────────────── */}
+    <section aria-labelledby="toc-heading" class="section">
+      <Stack space="3">
+        <span class="eyebrow" id="toc-heading">Jump to product</span>
+        <Cluster space="2">
+          {productRows.map((row) => (
+            <a class="toc-chip" data-toc-for={row.id} href={`#${productAnchor(row.id)}`}>
+              <span>{row.title}</span>
+              <span class="toc-count">{row.capabilities.length}</span>
+            </a>
+          ))}
+        </Cluster>
+      </Stack>
+    </section>
+
+    {/* ── Empty state shown when filters match nothing ────────── */}
+    <p id="filter-empty" class="empty" hidden>
+      No products match the current filters.
+    </p>
+
+    {/* ── Product tables ───────────────────────────────────────── */}
+    {productRows.length === 0 ? (
+      <p class="empty">No products defined yet.</p>
+    ) : (
+      productRows.map((row) => (
+        <section
+          class="product-section"
+          id={productAnchor(row.id)}
+          data-product
+          data-product-id={row.id}
+          data-phases={row.filterPhases}
+          data-categories={row.filterCategories}
+          data-licenses={row.filterLicenses}
+          data-statuses={row.filterStatuses}
+          aria-labelledby={`${productAnchor(row.id)}-heading`}
+        >
+          <Stack space="4">
+            <Card padding="5" accent="var(--phase-identify)">
+              <Stack space="3">
+                <Cluster space="3" justify="between" align="baseline">
+                  <Stack space="1">
+                    <Cluster space="2" align="baseline">
+                      <h2 id={`${productAnchor(row.id)}-heading`} class="product-title">
+                        <a class="product-title-link" href={productHref(row.id)}>{row.title}</a>
+                      </h2>
+                      <Badge tone={statusTone(row.status)}>{row.status}</Badge>
+                    </Cluster>
+                    {row.vendorTitle && <small class="muted">{row.vendorTitle}</small>}
+                  </Stack>
+                  <Cluster space="2">
+                    <a class="product-link" href={productHref(row.id)}>
+                      Open detail →
+                    </a>
+                    {row.url && (
+                      <a class="product-link" href={row.url} rel="noopener">
+                        Microsoft Learn ↗
+                      </a>
+                    )}
+                    {row.sources.map((s) => (
+                      <a class="source-chip" href={s.url} rel="noopener" title={s.title}>
+                        {hostOf(s.url)} ↗
+                      </a>
+                    ))}
+                  </Cluster>
+                </Cluster>
+
+                {row.summary && <p class="product-summary">{row.summary}</p>}
+
+                {row.categories.length > 0 && (
+                  <Cluster space="2">
+                    {row.categories.map((cat) => (
+                      <Badge size="sm">{cat.title}</Badge>
+                    ))}
+                  </Cluster>
+                )}
+              </Stack>
+            </Card>
+
+            {row.capabilities.length === 0 ? (
+              <p class="empty">No capabilities authored for this product yet.</p>
+            ) : (
+              <Table label={`Capabilities of ${row.title}`}>
+                <thead>
+                  <tr>
+                    <th scope="col" class="col-capability">Capability</th>
+                    <th scope="col">Phase</th>
+                    <th scope="col">Categories</th>
+                    <th scope="col">Licenses</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">References</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {row.capabilities.map((cap) => (
+                    <tr
+                      data-capability
+                      data-phases={cap.filterPhases}
+                      data-categories={cap.filterCategories}
+                      data-licenses={cap.filterLicenses}
+                      data-status={cap.status}
+                    >
+                      <td>
+                        <a class="cap-title-link" href={capabilityHref(cap.id)}>
+                          {cap.title}
+                        </a>
+                        {cap.summary && <div class="cap-summary">{cap.summary}</div>}
+                      </td>
+                      <td>
+                        <Cluster space="1">
+                          <Badge size="sm" swatch={PHASE_META[cap.phase].colorVar}>
+                            {PHASE_META[cap.phase].shortLabel}
+                          </Badge>
+                          {cap.supportingPhases.map((p) => (
+                            <Badge size="sm" swatch={PHASE_META[p].colorVar}>
+                              +{PHASE_META[p].shortLabel}
+                            </Badge>
+                          ))}
+                        </Cluster>
+                      </td>
+                      <td>
+                        {cap.categories.length === 0 ? (
+                          <span class="dash">—</span>
+                        ) : (
+                          <ul class="chip-list">
+                            {cap.categories.map((cat) => (
+                              <li><Badge size="sm">{cat.title}</Badge></li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                      <td>
+                        {cap.licenses.length === 0 ? (
+                          <span class="dash">—</span>
+                        ) : (
+                          <ul class="chip-list">
+                            {cap.licenses.map((lic) => (
+                              <li>
+                                {lic.url ? (
+                                  <a class="lic-link" href={lic.url} rel="noopener">
+                                    {lic.title}
+                                    {!lic.required && <span class="opt"> (optional)</span>}
+                                    <span aria-hidden="true"> ↗</span>
+                                  </a>
+                                ) : (
+                                  <Badge size="sm" tone="info">
+                                    {lic.title}
+                                    {!lic.required && <span class="opt"> (optional)</span>}
+                                  </Badge>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                      <td>
+                        <Badge size="sm" tone={statusTone(cap.status)}>{cap.status}</Badge>
+                      </td>
+                      <td>
+                        {cap.sources.length === 0 ? (
+                          <span class="dash">—</span>
+                        ) : (
+                          <ul class="link-list">
+                            {cap.sources.map((s) => (
+                              <li>
+                                <a href={s.url} rel="noopener" title={s.title}>
+                                  {s.title}
+                                  <span class="src-host">{hostOf(s.url)} ↗</span>
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </Stack>
+        </section>
+      ))
+    )}
+  </Container>
+</BaseLayout>
+
+<script>
+  // Filter island — pure DOM, no framework.
+  // Each capability row carries data-phases/data-categories/data-licenses/data-status.
+  // A product section is shown if ANY of its capability rows is visible OR
+  // (when no capabilities exist) the product itself matches the filter.
+  type FacetName = 'phase' | 'category' | 'license' | 'status';
+  type Selection = Record<FacetName, Set<string>>;
+
+  const FACETS: FacetName[] = ['phase', 'category', 'license', 'status'];
+
+  const root = document.querySelector('main');
+  if (root) {
+    const inputs = root.querySelectorAll<HTMLInputElement>('.filter-chips input[type="checkbox"]');
+    const productSections = root.querySelectorAll<HTMLElement>('[data-product]');
+    const tocChips = root.querySelectorAll<HTMLAnchorElement>('[data-toc-for]');
+    const tocByProduct = new Map<string, HTMLAnchorElement>();
+    tocChips.forEach((el) => {
+      const id = el.dataset.tocFor;
+      if (id) tocByProduct.set(id, el);
+    });
+    const countEl = root.querySelector('#filter-count');
+    const emptyEl = root.querySelector<HTMLElement>('#filter-empty');
+    const resetBtn = root.querySelector<HTMLButtonElement>('#filter-reset');
+
+    const collectSelection = (): Selection => {
+      const sel: Selection = {
+        phase: new Set(),
+        category: new Set(),
+        license: new Set(),
+        status: new Set(),
+      };
+      inputs.forEach((input) => {
+        if (input.checked) {
+          const facet = input.name as FacetName;
+          if (FACETS.includes(facet)) sel[facet].add(input.value);
+        }
+      });
+      return sel;
+    };
+
+    const matchesRow = (row: HTMLElement, sel: Selection): boolean => {
+      const phases = (row.dataset.phases ?? '').split(' ').filter(Boolean);
+      const categories = (row.dataset.categories ?? '').split(' ').filter(Boolean);
+      const licenses = (row.dataset.licenses ?? '').split(' ').filter(Boolean);
+      const status = row.dataset.status ?? '';
+      if (sel.phase.size && !phases.some((p) => sel.phase.has(p))) return false;
+      if (sel.category.size && !categories.some((c) => sel.category.has(c))) return false;
+      if (sel.license.size && !licenses.some((l) => sel.license.has(l))) return false;
+      if (sel.status.size && !sel.status.has(status)) return false;
+      return true;
+    };
+
+    const matchesProductMeta = (section: HTMLElement, sel: Selection): boolean => {
+      const phases = (section.dataset.phases ?? '').split(' ').filter(Boolean);
+      const categories = (section.dataset.categories ?? '').split(' ').filter(Boolean);
+      const licenses = (section.dataset.licenses ?? '').split(' ').filter(Boolean);
+      const statuses = (section.dataset.statuses ?? '').split(' ').filter(Boolean);
+      if (sel.phase.size && !phases.some((p) => sel.phase.has(p))) return false;
+      if (sel.category.size && !categories.some((c) => sel.category.has(c))) return false;
+      if (sel.license.size && !licenses.some((l) => sel.license.has(l))) return false;
+      if (sel.status.size && !statuses.some((s) => sel.status.has(s))) return false;
+      return true;
+    };
+
+    const apply = () => {
+      const sel = collectSelection();
+      const anyActive = FACETS.some((f) => sel[f].size > 0);
+      let visibleProducts = 0;
+
+      productSections.forEach((section) => {
+        // First filter capability rows.
+        const rows = section.querySelectorAll<HTMLElement>('[data-capability]');
+        let visibleRows = 0;
+        rows.forEach((row) => {
+          const show = !anyActive || matchesRow(row, sel);
+          row.toggleAttribute('hidden', !show);
+          if (show) visibleRows++;
+        });
+
+        // Decide whether the product section itself is shown.
+        // Show if any row is visible, or (when product has no rows) if the
+        // product-level meta matches the filter.
+        let showSection: boolean;
+        if (rows.length === 0) {
+          showSection = !anyActive || matchesProductMeta(section, sel);
+        } else {
+          showSection = visibleRows > 0;
+        }
+        section.toggleAttribute('hidden', !showSection);
+        const id = section.dataset.productId;
+        if (id) {
+          const toc = tocByProduct.get(id);
+          if (toc) toc.toggleAttribute('hidden', !showSection);
+        }
+        if (showSection) visibleProducts++;
+      });
+
+      if (emptyEl) emptyEl.toggleAttribute('hidden', visibleProducts !== 0);
+      if (countEl) {
+        if (!anyActive) {
+          countEl.textContent = `Showing all ${productSections.length} ${productSections.length === 1 ? 'product' : 'products'}`;
+        } else {
+          countEl.textContent = `Showing ${visibleProducts} of ${productSections.length} products`;
+        }
+      }
+    };
+
+    inputs.forEach((input) => input.addEventListener('change', apply));
+    resetBtn?.addEventListener('click', () => {
+      inputs.forEach((input) => { input.checked = false; });
+      apply();
+    });
+    // Initial paint (in case browser restored checkbox state).
+    apply();
+  }
+</script>
+
+<style>
+  .hero {
+    padding: var(--s-8) 0 var(--s-6);
+  }
+  .hero h1 {
+    font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .lede {
+    color: var(--fg-muted);
+    max-width: 60ch;
+    margin: 0;
+  }
+  .eyebrow {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+    font-weight: var(--fw-semibold);
+  }
+  .muted {
+    color: var(--fg-muted);
+  }
+  .empty {
+    color: var(--fg-subtle);
+    font-style: italic;
+  }
+  .dash {
+    color: var(--fg-subtle);
+  }
+
+  .section {
+    padding: var(--s-5) 0;
+  }
+
+  /* ── Filter bar ──────────────────────────────────────────── */
+  .filter-bar {
+    padding-top: var(--s-2);
+  }
+  .filter-groups {
+    display: grid;
+    gap: var(--s-3);
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  }
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    padding: var(--s-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+  }
+  .filter-label {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+    font-weight: var(--fw-semibold);
+  }
+  .filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    font-size: var(--fs-xs);
+    padding: var(--s-1) var(--s-2);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--fg-default);
+    cursor: pointer;
+    user-select: none;
+    transition: border-color var(--dur-fast) var(--ease-out),
+                background var(--dur-fast) var(--ease-out);
+  }
+  .chip:hover {
+    border-color: var(--border-strong);
+  }
+  .chip input {
+    /* Visually hidden but still focusable. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .chip:has(input:focus-visible) {
+    outline: 2px solid var(--link);
+    outline-offset: 2px;
+  }
+  .chip:has(input:checked) {
+    background: color-mix(in oklab, var(--chip-accent, var(--link)) 18%, var(--bg-surface));
+    border-color: color-mix(in oklab, var(--chip-accent, var(--link)) 60%, var(--border));
+    color: var(--fg-default);
+  }
+  .chip-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--chip-accent, var(--fg-muted));
+  }
+  .filter-count {
+    font-size: var(--fs-xs);
+    color: var(--fg-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .filter-reset {
+    font-size: var(--fs-xs);
+    padding: var(--s-1) var(--s-2);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--fg-muted);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .filter-reset:hover {
+    border-color: var(--border-strong);
+    color: var(--fg-default);
+  }
+
+  .product-title-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .product-title-link:hover {
+    color: var(--link);
+  }
+  .cap-title-link {
+    font-weight: var(--fw-semibold);
+    color: var(--fg-default);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: color var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out);
+  }
+  .cap-title-link:hover,
+  .cap-title-link:focus-visible {
+    color: var(--link);
+    border-bottom-color: currentColor;
+  }
+
+  /* ── TOC ─────────────────────────────────────────────────── */
+  .toc-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-2) var(--s-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background: var(--bg-surface);
+    color: var(--fg-default);
+    text-decoration: none;
+    font-size: var(--fs-sm);
+    transition: border-color var(--dur-fast) var(--ease-out),
+                background var(--dur-fast) var(--ease-out);
+  }
+  .toc-chip:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-surface-2);
+  }
+  .toc-count {
+    font-size: var(--fs-xs);
+    color: var(--fg-muted);
+    background: var(--bg-surface-2);
+    border-radius: var(--radius-full);
+    padding: 0 0.55em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Product section ─────────────────────────────────────── */
+  .product-section {
+    padding: var(--s-6) 0;
+    scroll-margin-top: var(--s-6);
+  }
+  .product-title {
+    font-size: var(--fs-xl);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .product-summary {
+    color: var(--fg-muted);
+    margin: 0;
+    max-width: 80ch;
+  }
+  .product-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    color: var(--link);
+    text-decoration: none;
+    padding: var(--s-1) var(--s-3);
+    border-radius: var(--radius-full);
+    border: 1px solid color-mix(in oklab, var(--link) 35%, transparent);
+    background: color-mix(in oklab, var(--link) 8%, transparent);
+  }
+  .product-link:hover {
+    background: color-mix(in oklab, var(--link) 15%, transparent);
+  }
+  .source-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    font-size: var(--fs-xs);
+    color: var(--fg-muted);
+    text-decoration: none;
+    padding: var(--s-1) var(--s-2);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+  }
+  .source-chip:hover {
+    color: var(--link);
+    border-color: var(--border-strong);
+  }
+
+  /* ── Table content ───────────────────────────────────────── */
+  .col-capability {
+    width: 32%;
+    min-width: 18rem;
+  }
+  .cap-title {
+    font-weight: var(--fw-semibold);
+    color: var(--fg-default);
+  }
+  .cap-summary {
+    color: var(--fg-muted);
+    font-size: var(--fs-xs);
+    margin-top: var(--s-1);
+    line-height: var(--lh-snug);
+  }
+
+  .chip-list,
+  .link-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+  }
+  .chip-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--s-1);
+  }
+
+  .lic-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    color: var(--link);
+    text-decoration: none;
+    padding: 0.2em 0.6em;
+    border-radius: var(--radius-full);
+    border: 1px solid color-mix(in oklab, var(--link) 35%, transparent);
+    background: color-mix(in oklab, var(--link) 10%, transparent);
+  }
+  .lic-link:hover {
+    background: color-mix(in oklab, var(--link) 20%, transparent);
+  }
+  .opt {
+    color: var(--fg-muted);
+    font-weight: var(--fw-regular);
+  }
+
+  .link-list a {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0;
+    color: var(--link);
+    text-decoration: none;
+    font-size: var(--fs-xs);
+    line-height: var(--lh-snug);
+  }
+  .link-list a:hover {
+    text-decoration: underline;
+  }
+  .src-host {
+    color: var(--fg-subtle);
+    font-size: 0.7rem;
+  }
+
+  @media (max-width: 720px) {
+    .col-capability {
+      min-width: 14rem;
+    }
+  }
+</style>

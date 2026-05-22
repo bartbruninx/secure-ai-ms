@@ -1,0 +1,16 @@
+title: Entra Agent ID
+product: microsoft-entra
+phase: observe
+supportingPhases:
+  - govern
+summary: >-
+  First-class agent identity in Microsoft Entra. Each agent has its own
+  directory object — instead of a borrowed service principal or user
+  account — so access, audit and lifecycle policy apply directly to the
+  agent itself.
+categories:
+  - identity
+status: published
+sources:
+  - title: Microsoft Entra Agent ID
+    url: https://learn.microsoft.com/en-us/entra/identity/agent-id/

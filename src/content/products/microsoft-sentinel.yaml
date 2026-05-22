@@ -1,0 +1,17 @@
+title: Microsoft Sentinel
+vendor: microsoft
+role: security-control
+primaryPhases:
+  - secure
+summary: >-
+  Cloud-native SIEM and SOAR. Ingests AI signals from Defender XDR, Purview
+  and Foundry; correlates them across the wider security estate; and runs
+  agent-specific playbooks for response automation.
+url: https://learn.microsoft.com/en-us/azure/sentinel/
+categories:
+  - threat-protection
+  - monitoring
+status: published
+sources:
+  - title: Microsoft Sentinel documentation
+    url: https://learn.microsoft.com/en-us/azure/sentinel/

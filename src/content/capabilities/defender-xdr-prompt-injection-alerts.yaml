@@ -1,0 +1,14 @@
+title: Prompt injection and jailbreak alerts
+product: microsoft-defender-xdr
+phase: secure
+summary: >-
+  Specialised alerts for direct and indirect prompt injection across
+  Copilot and agent workloads, correlated with the user identity, device
+  and source document that triggered the attempt.
+categories:
+  - threat-protection
+  - ai-safety
+status: published
+sources:
+  - title: Microsoft Defender XDR alerts overview
+    url: https://learn.microsoft.com/en-us/defender-xdr/alerts-incidents-correlation

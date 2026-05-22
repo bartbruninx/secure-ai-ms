@@ -1,0 +1,109 @@
+---
+/**
+ * A small horizontal bar that visualizes a distribution across labeled
+ * segments. Segments with `value: 0` are omitted. Use for coverage or
+ * status breakdowns.
+ */
+
+interface Segment {
+  label: string;
+  value: number;
+  /** Any CSS color or var, e.g. `var(--cov-full)`. */
+  color: string;
+}
+
+interface Props {
+  segments: Segment[];
+  /** Optional aria-label; defaults to a human summary. */
+  ariaLabel?: string;
+  /** Show inline legend underneath. Defaults to true. */
+  showLegend?: boolean;
+}
+
+const { segments, ariaLabel, showLegend = true } = Astro.props;
+
+const total = segments.reduce((sum, s) => sum + s.value, 0);
+const visible = segments.filter((s) => s.value > 0);
+const summary =
+  ariaLabel ?? visible.map((s) => `${s.label}: ${s.value}`).join(', ');
+---
+
+{total === 0 ? (
+  <div class="empty" role="img" aria-label="No data">—</div>
+) : (
+  <div class="meter-wrap" role="img" aria-label={summary}>
+    <div class="meter">
+      {visible.map((s) => (
+        <span
+          class="segment"
+          style={`flex: ${s.value}; background: ${s.color};`}
+          title={`${s.label}: ${s.value}`}
+        />
+      ))}
+    </div>
+    {showLegend && (
+      <ul class="legend">
+        {visible.map((s) => (
+          <li>
+            <span class="dot" style={`background: ${s.color};`} aria-hidden="true"></span>
+            <span class="legend-label">{s.label}</span>
+            <span class="legend-value">{s.value}</span>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+)}
+
+<style>
+  .meter-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    width: 100%;
+  }
+  .meter {
+    display: flex;
+    height: 8px;
+    width: 100%;
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    background: var(--bg-inset);
+  }
+  .segment {
+    display: block;
+    height: 100%;
+    transition: filter var(--dur-fast) var(--ease-out);
+  }
+  .segment:hover {
+    filter: brightness(1.1);
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-4);
+    font-size: var(--fs-xs);
+    color: var(--fg-muted);
+  }
+  .legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .dot {
+    width: 0.55em;
+    height: 0.55em;
+    border-radius: 50%;
+  }
+  .legend-label {
+    color: var(--fg-default);
+  }
+  .legend-value {
+    font-variant-numeric: tabular-nums;
+    color: var(--fg-muted);
+  }
+  .empty {
+    font-size: var(--fs-sm);
+    color: var(--fg-subtle);
+  }
+</style>

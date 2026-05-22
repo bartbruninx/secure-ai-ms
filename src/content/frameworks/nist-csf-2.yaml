@@ -2,12 +2,8 @@ title: NIST Cybersecurity Framework 2.0
 publisher: National Institute of Standards and Technology
 version: "2.0"
 url: https://www.nist.gov/cyberframework
-summary: |
-  Voluntary framework of cybersecurity outcomes organized around six Functions
-  (GOVERN, IDENTIFY, PROTECT, DETECT, RESPOND, RECOVER). Used here as the
-  primary mapping target for Microsoft security capabilities.
-status: draft
-sources:
-  - title: NIST Cybersecurity Framework
-    url: https://www.nist.gov/cyberframework
-    accessedOn: 2026-05-21
+summary: >-
+  Reference framework used for optional capability-to-control mappings. The
+  site is organised around the Microsoft AI security lifecycle, not the
+  framework — mappings are added where they aid auditors.
+status: published

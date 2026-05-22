@@ -156,6 +156,25 @@ export function indexCapabilitiesByProduct(
   return out;
 }
 
+/**
+ * Inverse of `appliesToProducts`: for each target product, list capabilities
+ * (owned by other products) that govern, monitor or assess it. Lets a
+ * product detail page render a "Governed & monitored by" section.
+ */
+export function indexCapabilitiesByAppliesToProduct(
+  capabilities: Capability[],
+): Map<string, Capability[]> {
+  const out = new Map<string, Capability[]>();
+  for (const c of capabilities) {
+    for (const ref of c.data.appliesToProducts) {
+      const arr = out.get(ref.id) ?? [];
+      arr.push(c);
+      out.set(ref.id, arr);
+    }
+  }
+  return out;
+}
+
 /** Group capabilities by each license they require. */
 export function indexCapabilitiesByLicense(
   capabilities: Capability[],
@@ -185,3 +204,37 @@ export function indexCapabilitiesByCategory(
   }
   return out;
 }
+
+/**
+ * Aggregate mapping coverage across a set of capabilities. Counts every
+ * inline mapping; a capability with 3 mappings contributes 3 entries.
+ */
+export function coverageDistribution(
+  capabilities: Capability[],
+): Record<Coverage, number> {
+  const out: Record<Coverage, number> = {
+    full: 0,
+    partial: 0,
+    enables: 0,
+    'not-applicable': 0,
+  };
+  for (const cap of capabilities) {
+    for (const m of cap.data.mappings) {
+      out[m.coverage] += 1;
+    }
+  }
+  return out;
+}
+
+/**
+ * Count entries by their `status` field. Returns a record with all three
+ * canonical statuses, including zeroes.
+ */
+export function countByStatus<T extends { data: { status: 'draft' | 'published' | 'deprecated' } }>(
+  entries: T[],
+): Record<'draft' | 'published' | 'deprecated', number> {
+  const out = { draft: 0, published: 0, deprecated: 0 };
+  for (const e of entries) out[e.data.status] += 1;
+  return out;
+}
+

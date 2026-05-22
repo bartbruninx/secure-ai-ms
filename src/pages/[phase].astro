@@ -1,0 +1,469 @@
+---
+import { getCollection, getEntry, render } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Container from '../components/layout/Container.astro';
+import Stack from '../components/layout/Stack.astro';
+import Cluster from '../components/layout/Cluster.astro';
+import Grid from '../components/layout/Grid.astro';
+import Card from '../components/primitives/Card.astro';
+import Badge from '../components/primitives/Badge.astro';
+import Breadcrumbs from '../components/primitives/Breadcrumbs.astro';
+import Table from '../components/primitives/Table.astro';
+import { PHASES_ORDERED, PHASE_META, nextPhase } from '../lib/phases';
+import { base, phaseHref, scenarioHref, productHref, capabilityHref } from '../lib/urls';
+import type { LifecyclePhase } from '../content.config';
+
+export async function getStaticPaths() {
+  return PHASES_ORDERED.map((p) => ({ params: { phase: p.id } }));
+}
+
+const { phase } = Astro.params as { phase: LifecyclePhase };
+const meta = PHASE_META[phase];
+if (!meta) throw new Error(`Unknown phase: ${phase}`);
+
+const [products, capabilities, categories, narrative, scenarios] = await Promise.all([
+  getCollection('products'),
+  getCollection('capabilities'),
+  getCollection('categories'),
+  getEntry('narratives', phase),
+  getCollection('scenarios'),
+]);
+
+const categoryById = new Map(categories.map((c) => [c.id, c]));
+
+// Products anchored to this phase
+const anchorProducts = products
+  .filter((p) => p.data.primaryPhases.includes(phase))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+// Capabilities for this phase (primary or supporting)
+const phaseCaps = capabilities
+  .filter((c) => c.data.phase === phase || c.data.supportingPhases.includes(phase))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+const productById = new Map(products.map((p) => [p.id, p]));
+
+const statusTone = (s: 'published' | 'draft' | 'deprecated') =>
+  s === 'published' ? 'success' : s === 'draft' ? 'warning' : 'neutral';
+
+const next = nextPhase(phase);
+
+// Scenarios whose walkthrough includes this phase
+const phaseScenarios = scenarios
+  .filter((s) => s.data.steps.some((st) => st.phase === phase))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+const NarrativeBody = narrative ? (await render(narrative)).Content : null;
+---
+
+<BaseLayout
+  title={meta.title}
+  description={`${meta.heroQuestion} ${meta.tagline}`}
+>
+  <Container size="xl">
+    <Breadcrumbs
+      accent={meta.colorVar}
+      items={[
+        { label: 'Dashboard', href: base },
+        { label: `Phase ${meta.order} · ${meta.title}` },
+      ]}
+    />
+    {/* ── Hero ────────────────────────────────────────────────── */}
+    <section class="hero" style={`--phase-color: ${meta.colorVar}`}>
+      <Stack space="4">
+        <h1>{meta.title}</h1>
+        <p class="hero-q">{meta.heroQuestion}</p>
+        <p class="hero-tagline">{meta.tagline}</p>
+      </Stack>
+    </section>
+
+    {/* ── Narrative ───────────────────────────────────────────── */}
+    {narrative && NarrativeBody && (
+      <section class="section" aria-labelledby="narrative-heading">
+        <Grid min="20rem" space="5">
+          <div class="prose">
+            <span class="eyebrow" id="narrative-heading">Why it matters</span>
+            <p class="intro">{narrative.data.intro}</p>
+            <NarrativeBody />
+          </div>
+          {narrative.data.keyOutcomes.length > 0 && (
+            <Card padding="5" accent={meta.colorVar}>
+              <Stack space="3">
+                <span class="eyebrow">Key outcomes</span>
+                <ul class="outcomes">
+                  {narrative.data.keyOutcomes.map((outcome) => (
+                    <li>{outcome}</li>
+                  ))}
+                </ul>
+              </Stack>
+            </Card>
+          )}
+        </Grid>
+      </section>
+    )}
+
+    {/* ── Anchor products ─────────────────────────────────────── */}
+    {anchorProducts.length > 0 && (
+      <section class="section" aria-labelledby="anchors-heading">
+        <Stack space="4">
+          <Stack space="2">
+            <span class="eyebrow">Anchor products</span>
+            <h2 id="anchors-heading">Where this phase lives</h2>
+          </Stack>
+          <Grid min="18rem" space="3">
+            {anchorProducts.map((p) => (
+              <Card padding="4" accent={meta.colorVar}>
+                <Stack space="3">
+                  <Cluster space="2" justify="between" align="baseline">
+                    <h3 class="product-title">
+                      <a class="product-title-link" href={productHref(p.id)}>{p.data.title}</a>
+                    </h3>
+                    <Badge size="sm" tone={statusTone(p.data.status)}>{p.data.status}</Badge>
+                  </Cluster>
+                  {p.data.summary && <p class="muted">{p.data.summary}</p>}
+                  <Cluster space="2">
+                    <a class="product-link" href={productHref(p.id)}>Open detail →</a>
+                    {p.data.url && (
+                      <a class="product-link" href={p.data.url} rel="noopener">
+                        Microsoft Learn ↗
+                      </a>
+                    )}
+                  </Cluster>
+                </Stack>
+              </Card>
+            ))}
+          </Stack>
+        </Stack>
+      </section>
+    )}
+
+    {/* ── Capabilities table ──────────────────────────────────── */}
+    <section class="section" aria-labelledby="caps-heading">
+      <Stack space="4">
+        <Stack space="2">
+          <span class="eyebrow">Capabilities</span>
+          <h2 id="caps-heading">What you actually configure</h2>
+        </Stack>
+
+        {phaseCaps.length === 0 ? (
+          <p class="empty">No capabilities authored for this phase yet.</p>
+        ) : (
+          <Table label={`Capabilities for the ${meta.title} phase`}>
+            <thead>
+              <tr>
+                <th scope="col" class="col-cap">Capability</th>
+                <th scope="col">Product</th>
+                <th scope="col">Categories</th>
+                <th scope="col">Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {phaseCaps.map((cap) => {
+                const product = productById.get(cap.data.product.id);
+                const isSupporting = cap.data.phase !== phase;
+                const firstSource = cap.data.sources[0];
+                return (
+                  <tr>
+                    <td>
+                      <div class="cap-title">
+                        <a class="cap-title-link" href={capabilityHref(cap.id)}>{cap.data.title}</a>
+                        {isSupporting && (
+                          <Badge size="sm" tone="info">supporting</Badge>
+                        )}
+                      </div>
+                      {cap.data.summary && <div class="cap-summary">{cap.data.summary}</div>}
+                    </td>
+                    <td>
+                      {product ? (
+                        <a class="product-cell-link" href={productHref(product.id)}>{product.data.title}</a>
+                      ) : (
+                        <span class="dash">—</span>
+                      )}
+                    </td>
+                    <td>
+                      {cap.data.categories.length === 0 ? (
+                        <span class="dash">—</span>
+                      ) : (
+                        <ul class="chip-list">
+                          {cap.data.categories.map((ref) => {
+                            const cat = categoryById.get(ref.id);
+                            return cat ? <li><Badge size="sm">{cat.data.title}</Badge></li> : null;
+                          })}
+                        </ul>
+                      )}
+                    </td>
+                    <td>
+                      {firstSource ? (
+                        <a class="ref-link" href={firstSource.url} rel="noopener" title={firstSource.title}>
+                          {firstSource.title} ↗
+                        </a>
+                      ) : (
+                        <span class="dash">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        )}
+      </Stack>
+    </section>
+
+    {/* ── Scenarios touching this phase ───────────────────────── */}
+    {phaseScenarios.length > 0 && (
+      <section class="section" aria-labelledby="scenarios-heading">
+        <Stack space="4">
+          <Stack space="2">
+            <span class="eyebrow">Scenarios</span>
+            <h2 id="scenarios-heading">See it in context</h2>
+            <p class="muted">End-to-end walkthroughs that use this phase as one of their steps.</p>
+          </Stack>
+          <Grid min="20rem" space="3">
+            {phaseScenarios.map((s) => (
+              <a class="scenario-card" href={scenarioHref(s.id)}>
+                <Card padding="4" accent={meta.colorVar}>
+                  <Stack space="2">
+                    <h3 class="scenario-title">{s.data.title}</h3>
+                    <p class="scenario-q">"{s.data.question}"</p>
+                    <span class="scenario-cta">Read scenario →</span>
+                  </Stack>
+                </Card>
+              </a>
+            ))}
+          </Grid>
+        </Stack>
+      </section>
+    )}
+
+    {/* ── What's next ─────────────────────────────────────────── */}
+    {next && (
+      <section class="section">
+        <Card padding="5">
+          <Cluster space="3" justify="between" align="baseline">
+            <Stack space="1">
+              <span class="eyebrow">What's next</span>
+              <p class="next-q">{next.heroQuestion}</p>
+            </Stack>
+            <a class="cta primary" href={phaseHref(next.id)} style={`--phase-color: ${next.colorVar}`}>
+              {next.title} →
+            </a>
+          </Cluster>
+        </Card>
+      </section>
+    )}
+  </Container>
+</BaseLayout>
+
+<style>
+  .hero {
+    --phase-color: var(--accent);
+    padding: var(--s-10) 0 var(--s-7);
+    max-width: 60rem;
+    border-left: 4px solid var(--phase-color);
+    padding-left: var(--s-5);
+    margin-left: calc(-1 * var(--s-5));
+  }
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(2rem, 1.4rem + 2vw, 2.75rem);
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+  }
+  .hero-q {
+    margin: 0;
+    font-size: var(--fs-xl);
+    color: var(--fg-default);
+    font-weight: var(--fw-semibold);
+    line-height: 1.2;
+  }
+  .hero-tagline {
+    margin: 0;
+    font-size: var(--fs-lg);
+    color: var(--fg-muted);
+    max-width: 60ch;
+  }
+
+  .eyebrow {
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--fg-subtle);
+  }
+  .muted { color: var(--fg-muted); margin: 0; font-size: var(--fs-sm); line-height: var(--lh-snug); }
+  .empty { color: var(--fg-subtle); font-style: italic; }
+  .dash { color: var(--fg-subtle); }
+  .section { margin-top: var(--s-8); }
+
+  /* ── Narrative prose ─────────────────────────────────────── */
+  .prose { display: flex; flex-direction: column; gap: var(--s-3); }
+  .prose .intro {
+    font-size: var(--fs-lg);
+    color: var(--fg-default);
+    line-height: var(--lh-snug);
+    margin: 0;
+  }
+  .prose :global(p) {
+    color: var(--fg-default);
+    line-height: var(--lh-normal);
+    margin: 0 0 var(--s-3) 0;
+    max-width: 65ch;
+  }
+  .prose :global(p:last-child) { margin-bottom: 0; }
+  .prose :global(strong) { font-weight: var(--fw-semibold); color: var(--fg-default); }
+  .outcomes {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+  }
+  .outcomes li {
+    padding-left: var(--s-4);
+    position: relative;
+    color: var(--fg-default);
+    line-height: var(--lh-snug);
+    font-size: var(--fs-sm);
+  }
+  .outcomes li::before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: var(--phase-color, var(--accent));
+    font-weight: var(--fw-bold);
+  }
+
+  /* ── Products ────────────────────────────────────────────── */
+  .product-title { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); }
+  .product-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    font-size: var(--fs-sm);
+    color: var(--link);
+    text-decoration: none;
+    font-weight: var(--fw-medium);
+  }
+  .product-link:hover { text-decoration: underline; }
+
+  /* ── Table content ───────────────────────────────────────── */
+  .col-cap { width: 38%; min-width: 18rem; }
+  .cap-title {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    font-weight: var(--fw-semibold);
+    color: var(--fg-default);
+  }
+  .cap-summary {
+    color: var(--fg-muted);
+    font-size: var(--fs-xs);
+    margin-top: var(--s-1);
+    line-height: var(--lh-snug);
+  }
+  .product-cell-link {
+    font-size: var(--fs-sm);
+    color: var(--fg-default);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .product-cell-link:hover,
+  .product-cell-link:focus-visible {
+    color: var(--link);
+    border-bottom-color: currentColor;
+  }
+  .product-title-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .product-title-link:hover { color: var(--link); }
+  .cap-title-link {
+    color: var(--fg-default);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .cap-title-link:hover,
+  .cap-title-link:focus-visible {
+    color: var(--link);
+    border-bottom-color: currentColor;
+  }
+  .chip-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1);
+  }
+  .ref-link {
+    font-size: var(--fs-xs);
+    color: var(--link);
+    text-decoration: none;
+    line-height: var(--lh-snug);
+  }
+  .ref-link:hover { text-decoration: underline; }
+
+  /* ── Scenario cards ─────────────────────────────────────── */
+  .scenario-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .scenario-card:hover { transform: translateY(-2px); }
+  .scenario-title {
+    margin: 0;
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-semibold);
+    letter-spacing: -0.01em;
+  }
+  .scenario-q {
+    margin: 0;
+    color: var(--fg-muted);
+    font-style: italic;
+    line-height: var(--lh-snug);
+    font-size: var(--fs-sm);
+  }
+  .scenario-cta {
+    color: var(--link);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+  }
+
+  /* ── Next CTA ────────────────────────────────────────────── */
+  .next-q {
+    margin: 0;
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-semibold);
+    color: var(--fg-default);
+  }
+  .cta {
+    --phase-color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-3) var(--s-4);
+    border-radius: var(--radius-full);
+    text-decoration: none;
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    color: var(--fg-default);
+  }
+  .cta.primary {
+    background: var(--phase-color);
+    color: var(--fg-on-accent);
+    border-color: var(--phase-color);
+  }
+  .cta.primary:hover {
+    filter: brightness(0.92);
+  }
+
+  @media (max-width: 720px) {
+    .col-cap { min-width: 14rem; }
+  }
+</style>

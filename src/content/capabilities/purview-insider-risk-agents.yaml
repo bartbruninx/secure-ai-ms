@@ -1,0 +1,17 @@
+title: Insider Risk for agent-mediated activity
+product: microsoft-purview
+phase: govern
+supportingPhases:
+  - secure
+summary: >-
+  Insider Risk Management detects risky patterns that go through Copilot
+  and agents — bulk sensitive-data queries, suspicious downloads triggered
+  by an agent, exfiltration during a departure window — and flags them
+  for review.
+categories:
+  - data-protection
+  - governance
+status: published
+sources:
+  - title: Microsoft Purview Insider Risk Management
+    url: https://learn.microsoft.com/en-us/purview/insider-risk-management

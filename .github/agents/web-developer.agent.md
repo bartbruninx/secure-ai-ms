@@ -43,8 +43,9 @@ src/
   lib/
     coverage.ts    # build-time indexes + ancestor/descendant rollup
   styles/
-    tokens.css     # design tokens (custom properties)
-    global.css     # resets + base
+    tokens.css     # design tokens (custom properties) — light + dark
+    reset.css      # minimal modern reset
+    global.css     # typography + focus + link defaults
 public/            # static passthrough assets
 astro.config.mjs   # site + base for GitHub Pages
 tsconfig.json      # extends astro/tsconfigs/strict
@@ -71,6 +72,79 @@ Key relationships you must respect when writing queries or pages:
 **Mappings live inline on the capability** — there is no separate `mappings` collection. Use the helpers in `src/lib/coverage.ts` for inverse views (per-control, per-license, per-category) and pillar rollup. Add new helpers there; do **not** scatter ad-hoc reducers across pages.
 
 Content IDs are derived from the file path relative to the collection root. Example: `src/content/controls/nist-csf-2/protect.yaml` → id `nist-csf-2/protect`. Cross-collection `reference()` fields use those IDs verbatim.
+
+## UI & Styling System (locked)
+
+The site uses a **token-driven, zero-JS-by-default** styling system. Follow these rules — they're how dark theme, theming, and modularity actually work.
+
+### Layering
+
+```
+src/styles/
+  tokens.css       # design tokens (CSS custom properties) — light + dark
+  reset.css        # minimal modern reset
+  global.css       # typography, focus ring, link defaults
+src/components/
+  layout/          # Stack, Cluster, Container, Grid — composition primitives
+  primitives/      # Card, Badge, Callout, Link, Button — generic visuals
+  domain/          # CoverageDot, PhaseBadge, CapabilityCard, MatrixCell, JourneyStep
+                   #   ↳ these are the only components that know the content schema
+ThemeToggle.astro  # the one allowed client island (client:idle)
+```
+
+Three rules:
+
+1. **Primitives know nothing about the data model.** Generic props (`variant`, `tone`, `size`).
+2. **Domain components know the schema.** They take typed entries (`CollectionEntry<'capabilities'>`) and compose primitives. This is where `coverage`, `level`, `status` map to visual variants.
+3. **Pages know about routing only.** Call `getCollection` / helpers from `src/lib/coverage.ts`, then hand entries to domain components. No layout CSS in pages.
+
+### Design tokens
+
+- **One file: `src/styles/tokens.css`.** Define a primitive palette, then map it to **semantic tokens** (`--bg-app`, `--fg-default`, `--border`, `--link`, …).
+- Themes only swap the semantic layer via `:root[data-theme="dark"]`.
+- Components consume **semantic tokens only** — never raw hex, never primitive palette names.
+- Phase / coverage / status get their own token families (`--phase-{discover|identify|protect|detect|respond|govern}`, `--cov-{full|partial|enables|na}`). One token per visual concept, one source of truth.
+- Set `color-scheme: light` / `dark` on `:root` so native form controls follow theme.
+
+### Theme switching (light / dark / auto, no flash)
+
+- Inline `<script is:inline>` in `<head>` of `BaseLayout.astro` reads `localStorage.getItem('theme')` (`'light' | 'dark' | 'auto' | null`), resolves `auto` against `prefers-color-scheme`, and writes `document.documentElement.dataset.theme` **before** any stylesheet renders. This is the only way to avoid FOUC.
+- `<ThemeToggle />` is the **only** sanctioned `client:idle` island. It cycles modes and writes `localStorage`. No other client JS without explicit approval.
+- Listen to `prefers-color-scheme` changes only when the active mode is `auto`.
+
+### Styling components
+
+- Use Astro's scoped `<style>` blocks. Global styles live in `tokens.css` / `reset.css` / `global.css` only.
+- Encode variants via `data-*` attributes, not class soup: `<button data-variant="primary" data-size="sm">`. Easier to compose and to override.
+- For phase/coverage accents, pass the token through inline custom properties on the element: `style={{ '--accent': 'var(--phase-protect)' }}` then `background: var(--accent)` inside the scoped block. Keeps domain logic out of CSS.
+- `class:list={[…]}` for conditional classes. Never string-concat class names.
+
+### Layout primitives (composition over a grid framework)
+
+- **`<Stack space="4">`** — vertical rhythm via `gap`.
+- **`<Cluster space="2" align="center">`** — wrap-friendly inline row.
+- **`<Container size="md">`** — max-width wrapper, centered.
+- **`<Grid min="16rem">`** — `repeat(auto-fill, minmax(var(--min), 1fr))` card grids.
+
+These cover ~90% of layouts and keep page-level CSS empty. Don't reach for Tailwind/Bootstrap.
+
+### Accessibility & responsiveness
+
+- Color contrast ≥ AA in **both** themes — verify dark tokens with a contrast tool when adding them.
+- Never encode meaning in color alone. `<CoverageDot>` and `<PhaseBadge>` always carry `aria-label` and pair with text.
+- One global `:focus-visible` style using `outline: 2px solid var(--link); outline-offset: 2px;`.
+- Respect `prefers-reduced-motion` for any transition / animation.
+- Mobile: matrix-style tables collapse to stacked cards under ~900px via media query, no JS.
+- Images via `astro:assets` `<Image />` with explicit `width`/`height`.
+
+### Anti-patterns (do not do)
+
+- ❌ Hardcoded hex / rgb in components.
+- ❌ Conditional class string concatenation.
+- ❌ Theme state stored in component context only (causes flash).
+- ❌ Tailwind, Bootstrap, CSS-in-JS, styled-components.
+- ❌ One mega component per page — prefer many small components composed via `<slot />`.
+- ❌ Phase/coverage colors copy-pasted across components — always go through tokens.
 
 ## Patterns You Use
 

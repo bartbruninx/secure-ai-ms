@@ -1,0 +1,13 @@
+title: DLP for agents and Copilots
+product: microsoft-purview
+phase: govern
+summary: >-
+  Purview DLP rules apply to content retrieved, generated or shared by
+  Copilots and agents — including blocking specific sensitive types from
+  being summarised or exposed in chat responses.
+categories:
+  - data-protection
+status: published
+sources:
+  - title: Data Loss Prevention in Microsoft Purview
+    url: https://learn.microsoft.com/en-us/purview/dlp-learn-about-dlp

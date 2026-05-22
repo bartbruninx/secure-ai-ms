@@ -1,0 +1,17 @@
+title: Workload identity inventory
+product: microsoft-entra
+phase: observe
+supportingPhases:
+  - observe
+summary: >-
+  Entra's workload identity views inventory the service principals,
+  managed identities and Entra Agent IDs already operating in the tenant,
+  including those installed by third-party agents that nobody on the
+  security team formally approved.
+categories:
+  - identity
+  - monitoring
+status: published
+sources:
+  - title: Workload identities in Microsoft Entra
+    url: https://learn.microsoft.com/en-us/entra/workload-id/workload-identities-overview

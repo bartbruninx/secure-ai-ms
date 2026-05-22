@@ -1,0 +1,17 @@
+title: Environment isolation and maker governance
+product: microsoft-copilot-studio
+phase: build
+appliesTo:
+  - maker-tool
+summary: >-
+  Power Platform environments separate development, test and production.
+  Admins decide who can create environments, who can publish to production
+  and which data sources are available in each, capping the blast radius of
+  any one agent.
+categories:
+  - governance
+  - identity
+status: published
+sources:
+  - title: Power Platform environments overview
+    url: https://learn.microsoft.com/en-us/power-platform/admin/environments-overview

@@ -1,0 +1,17 @@
+title: Managed identity for Foundry projects
+product: azure-ai-foundry
+phase: build
+supportingPhases:
+  - govern
+appliesTo:
+  - maker-tool
+summary: >-
+  Foundry projects and agents authenticate to downstream Azure resources
+  using a system- or user-assigned managed identity, removing long-lived
+  keys and bringing agent access under standard Entra access reviews.
+categories:
+  - identity
+status: published
+sources:
+  - title: Managed identities for Azure resources
+    url: https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/

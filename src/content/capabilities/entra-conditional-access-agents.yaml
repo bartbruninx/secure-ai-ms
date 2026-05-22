@@ -1,0 +1,14 @@
+title: Conditional Access for agents
+product: microsoft-entra
+phase: govern
+summary: >-
+  Conditional Access policies can require MFA, compliant device, trusted
+  location or specific user risk levels before a user can invoke a Copilot
+  or agent, putting the same gates on AI as on any other tenant resource.
+categories:
+  - identity
+  - governance
+status: published
+sources:
+  - title: Conditional Access overview
+    url: https://learn.microsoft.com/en-us/entra/identity/conditional-access/overview

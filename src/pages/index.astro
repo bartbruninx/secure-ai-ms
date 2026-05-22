@@ -1,17 +1,258 @@
 ---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Container from '../components/layout/Container.astro';
+import Stack from '../components/layout/Stack.astro';
+import Cluster from '../components/layout/Cluster.astro';
+import Card from '../components/primitives/Card.astro';
+import Badge from '../components/primitives/Badge.astro';
+import { PHASES_ORDERED } from '../lib/phases';
+import { phaseHref, scenariosIndexHref, productsIndexHref } from '../lib/urls';
 
+const [products, capabilities, scenarios] = await Promise.all([
+  getCollection('products'),
+  getCollection('capabilities'),
+  getCollection('scenarios'),
+]);
+
+const countByPhase = (phase: string) =>
+  capabilities.filter((c) => c.data.phase === phase).length;
+
+const productsByPhase = (phase: string) =>
+  products.filter((p) => p.data.primaryPhases.includes(phase as never));
+
+const pluralize = (n: number, singular: string, plural = `${singular}s`) =>
+  `${n} ${n === 1 ? singular : plural}`;
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout
+  title="secure-ai-ms"
+  description="Microsoft's security architecture for AI, in one page. Build, Observe, Govern and Secure your agents — without reading ten Microsoft Learn docs."
+>
+  <Container size="xl">
+    {/* ── Hero ──────────────────────────────────────────────── */}
+    <section class="hero">
+      <Stack space="4">
+        <h1>Microsoft's security architecture for AI — in one page.</h1>
+        <p class="lede">
+          Stop stitching ten Microsoft Learn docs together. Walk the AI security
+          lifecycle from <strong>Build</strong> through <strong>Observe</strong>,
+          <strong>Govern</strong> and <strong>Secure</strong> — every product
+          and capability mapped to the phase it belongs to.
+        </p>
+        <Cluster space="3" justify="center">
+          <a class="cta primary" href="#phases">Open the architecture ↓</a>
+          <a class="cta" href={scenariosIndexHref()}>See scenarios →</a>
+        </Cluster>
+      </Stack>
+    </section>
+
+    {/* ── KPI strip (right under hero) ──────────────────────── */}
+    <section class="kpi-strip" aria-label="At a glance">
+      <a class="kpi" href={productsIndexHref()}>
+        <span class="kpi-value">{products.length}</span>
+        <span class="kpi-label">products</span>
+      </a>
+      <span class="kpi-sep" aria-hidden="true"></span>
+      <div class="kpi">
+        <span class="kpi-value">{capabilities.length}</span>
+        <span class="kpi-label">capabilities</span>
+      </div>
+      <span class="kpi-sep" aria-hidden="true"></span>
+      <a class="kpi" href={scenariosIndexHref()}>
+        <span class="kpi-value">{scenarios.length}</span>
+        <span class="kpi-label">scenarios</span>
+      </a>
+      <span class="kpi-sep" aria-hidden="true"></span>
+      <div class="kpi">
+        <span class="kpi-value">{PHASES_ORDERED.length}</span>
+        <span class="kpi-label">lifecycle phases</span>
+      </div>
+    </section>
+
+    {/* ── Phase cards (2-col grid) ──────────────────────────── */}
+    <section id="phases" class="section phase-grid-wrap" aria-labelledby="phases-heading">
+      <Stack space="4">
+        <h2 id="phases-heading" class="centered">The four phases</h2>
+
+        <ul class="phase-grid" role="list">
+          {PHASES_ORDERED.map((p) => {
+            const productCount = productsByPhase(p.id).length;
+            const capCount = countByPhase(p.id);
+            return (
+              <li id={`phase-${p.id}`}>
+                <a class="phase-card" href={phaseHref(p.id)} style={`--phase-color: ${p.colorVar}`}>
+                  <Card padding="4" accent={p.colorVar}>
+                    <Stack space="2">
+                      <Cluster space="2" align="baseline">
+                        <span class="phase-card-order">{String(p.order).padStart(2, '0')}</span>
+                        <h3 class="phase-card-title">{p.title}</h3>
+                      </Cluster>
+                      <p class="phase-card-q">{p.heroQuestion}</p>
+                      <Cluster space="2">
+                        <Badge size="sm" tone="accent">{pluralize(productCount, 'product')}</Badge>
+                        <Badge size="sm">{pluralize(capCount, 'capability', 'capabilities')}</Badge>
+                      </Cluster>
+                    </Stack>
+                  </Card>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </Stack>
+    </section>
+  </Container>
+</BaseLayout>
+
+<style>
+  /* ── Hero ──────────────────────────────────────────────── */
+  .hero {
+    padding: var(--s-7) 0 var(--s-4);
+    max-width: 42rem;
+    margin-inline: auto;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: clamp(1.75rem, 1rem + 2.6vw, 2.75rem);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .lede {
+    font-size: var(--fs-lg);
+    color: var(--fg-muted);
+    line-height: var(--lh-snug);
+    max-width: 46ch;
+    margin: 0 auto;
+    text-wrap: pretty;
+  }
+
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-3) var(--s-4);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-strong);
+    background: var(--bg-surface);
+    color: var(--fg-default);
+    font-weight: var(--fw-medium);
+    font-size: var(--fs-sm);
+    text-decoration: none;
+    transition: background var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out);
+  }
+  .cta:hover { background: var(--bg-surface-2); }
+  .cta.primary {
+    background: var(--accent);
+    color: var(--fg-on-accent);
+    border-color: var(--accent);
+  }
+  .cta.primary:hover {
+    background: color-mix(in oklab, var(--accent) 85%, black);
+  }
+
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--fg-subtle);
+  }
+  .centered { text-align: center; margin: 0; display: block; }
+  .section { margin-top: var(--s-6); }
+
+  /* ── KPI strip ───────────────────────────────── */
+  .kpi-strip {
+    margin-top: var(--s-4);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: var(--s-5);
+    padding: var(--s-4) var(--s-5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--bg-surface);
+    max-width: 56rem;
+    margin-inline: auto;
+  }
+  .kpi {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    text-decoration: none;
+    color: inherit;
+    padding: var(--s-1) var(--s-2);
+    border-radius: var(--radius-md);
+    transition: background var(--dur-fast) var(--ease-out);
+  }
+  a.kpi:hover { background: var(--bg-surface-2); }
+  .kpi-value {
+    font-size: var(--fs-2xl);
+    font-weight: var(--fw-semibold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .kpi-label {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+  }
+  .kpi-sep {
+    width: 1px;
+    height: 2rem;
+    background: var(--border);
+  }
+
+  /* ── Phase cards grid ─────────────────────────────────── */
+  .phase-grid-wrap { max-width: 64rem; margin-inline: auto; }
+  .phase-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-3);
+  }
+
+  .phase-card {
+    --phase-color: var(--accent);
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    height: 100%;
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .phase-card:hover { transform: translateY(-2px); }
+  .phase-card-order {
+    font-family: var(--ff-mono);
+    font-size: var(--fs-xs);
+    color: var(--phase-color);
+    font-weight: var(--fw-semibold);
+  }
+  .phase-card-title {
+    margin: 0;
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-semibold);
+    letter-spacing: -0.01em;
+  }
+  .phase-card-q {
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--fg-default);
+    font-weight: var(--fw-medium);
+  }
+
+  /* ── Responsive ─────────────────────────────────────── */
+  @media (max-width: 720px) {
+    .kpi-sep { display: none; }
+    .kpi-strip { gap: var(--s-4); }
+    .phase-grid { grid-template-columns: 1fr; }
+  }
+</style>

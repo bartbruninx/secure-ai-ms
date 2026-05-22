@@ -1,0 +1,14 @@
+title: Agent inventory
+product: microsoft-agent-365
+phase: observe
+summary: >-
+  Single tenant-wide registry of every sanctioned agent — Copilot Studio,
+  M365 Copilot, Foundry-built or partner — with its owner, environment,
+  identity and license consumption.
+categories:
+  - monitoring
+  - governance
+status: published
+sources:
+  - title: Agent 365 overview
+    url: https://www.microsoft.com/en-us/microsoft-365/agent-365

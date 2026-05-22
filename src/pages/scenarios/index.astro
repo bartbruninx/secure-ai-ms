@@ -1,0 +1,148 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Container from '../../components/layout/Container.astro';
+import Stack from '../../components/layout/Stack.astro';
+import Cluster from '../../components/layout/Cluster.astro';
+import Grid from '../../components/layout/Grid.astro';
+import Card from '../../components/primitives/Card.astro';
+import Badge from '../../components/primitives/Badge.astro';
+import Breadcrumbs from '../../components/primitives/Breadcrumbs.astro';
+import { base, scenarioHref } from '../../lib/urls';
+import { PHASE_META } from '../../lib/phases';
+import { PERSONA_LABELS } from '../../content.config';
+
+const scenarios = (await getCollection('scenarios')).sort((a, b) =>
+  a.data.title.localeCompare(b.data.title),
+);
+
+// unique phases used by each scenario, in lifecycle order
+const phaseOrder: Record<string, number> = {
+  build: 1, observe: 2, govern: 3, secure: 4,
+};
+const usedPhases = (steps: Array<{ phase: string }>) =>
+  Array.from(new Set(steps.map((s) => s.phase))).sort(
+    (a, b) => phaseOrder[a] - phaseOrder[b],
+  );
+---
+
+<BaseLayout
+  title="Scenarios"
+  description="Concrete walkthroughs through the Microsoft AI security lifecycle for the situations you actually face."
+>
+  <Container size="xl">
+    <Breadcrumbs
+      items={[
+        { label: 'Dashboard', href: base },
+        { label: 'Scenarios' },
+      ]}
+    />
+    <section class="hero">
+      <Stack space="3">
+        <h1>Scenarios</h1>
+        <p class="lede">
+          Pick the situation that matches yours. Each scenario walks the
+          lifecycle from end to end, names the exact Microsoft capabilities
+          you'd light up, and tells you why — in the order you'd actually
+          do them.
+        </p>
+      </Stack>
+    </section>
+
+    <section class="section">
+      <Grid min="22rem" space="3">
+        {scenarios.map((s) => {
+          const phases = usedPhases(s.data.steps);
+          const stepCount = s.data.steps.length;
+          const capCount = s.data.steps.reduce(
+            (n, st) => n + st.capabilities.length,
+            0,
+          );
+          return (
+            <a class="card-link" href={scenarioHref(s.id)}>
+              <Card padding="5">
+                <Stack space="3">
+                  <Cluster space="2">
+                    <Badge size="sm" tone="info">{PERSONA_LABELS[s.data.persona]}</Badge>
+                    <Badge size="sm">{stepCount} {stepCount === 1 ? 'step' : 'steps'}</Badge>
+                    <Badge size="sm">{capCount} capabilities</Badge>
+                  </Cluster>
+                  <h2 class="s-title">{s.data.title}</h2>
+                  <p class="s-q">"{s.data.question}"</p>
+                  <p class="s-summary">{s.data.summary}</p>
+                  <div class="phase-dots" aria-label="Phases covered">
+                    {phases.map((p) => (
+                      <span
+                        class="dot"
+                        title={PHASE_META[p as keyof typeof PHASE_META].title}
+                        style={`--phase-color: ${PHASE_META[p as keyof typeof PHASE_META].colorVar}`}
+                      >
+                        {PHASE_META[p as keyof typeof PHASE_META].shortLabel}
+                      </span>
+                    ))}
+                  </div>
+                </Stack>
+              </Card>
+            </a>
+          );
+        })}
+      </Grid>
+    </section>
+  </Container>
+</BaseLayout>
+
+<style>
+  .hero { padding: var(--s-10) 0 var(--s-5); max-width: 60rem; }
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(2rem, 1.4rem + 2vw, 2.75rem);
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+  }
+  .lede { font-size: var(--fs-lg); color: var(--fg-muted); margin: 0; max-width: 60ch; }
+  .section { margin-top: var(--s-6); }
+  .card-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .card-link:hover { transform: translateY(-2px); }
+  .s-title {
+    margin: 0;
+    font-size: var(--fs-xl);
+    font-weight: var(--fw-semibold);
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  .s-q {
+    margin: 0;
+    font-style: italic;
+    color: var(--fg-default);
+    line-height: var(--lh-snug);
+  }
+  .s-summary {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
+  }
+  .phase-dots {
+    display: flex;
+    gap: var(--s-1);
+    flex-wrap: wrap;
+    margin-top: var(--s-1);
+  }
+  .dot {
+    --phase-color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    padding: 2px var(--s-2);
+    border-radius: var(--radius-full);
+    background: color-mix(in oklab, var(--phase-color) 14%, transparent);
+    color: var(--phase-color);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.02em;
+  }
+</style>

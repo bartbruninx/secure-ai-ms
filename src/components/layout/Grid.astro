@@ -1,0 +1,22 @@
+---
+interface Props {
+  /** Minimum column width before wrapping, e.g. "16rem". */
+  min?: string;
+  /** Gap in spacing tokens. */
+  space?: '2' | '3' | '4' | '5' | '6';
+}
+
+const { min = '18rem', space = '4' } = Astro.props;
+---
+
+<div class="grid" style={`--grid-min: ${min}; --grid-gap: var(--s-${space});`}>
+  <slot />
+</div>
+
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--grid-min), 1fr));
+    gap: var(--grid-gap);
+  }
+</style>

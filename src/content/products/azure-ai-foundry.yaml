@@ -1,0 +1,19 @@
+title: Azure AI Foundry
+vendor: microsoft
+role: maker-tool
+primaryPhases:
+  - build
+summary: >-
+  Microsoft's developer platform for building agents and AI applications on
+  Azure. Provides Content Safety, prompt shields, evaluations, managed
+  identity, private networking and customer-managed keys for production-grade
+  AI workloads.
+url: https://learn.microsoft.com/en-us/azure/ai-foundry/
+categories:
+  - ai-safety
+  - network-security
+  - identity
+status: published
+sources:
+  - title: Azure AI Foundry documentation
+    url: https://learn.microsoft.com/en-us/azure/ai-foundry/

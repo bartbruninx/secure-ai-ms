@@ -1,0 +1,417 @@
+---
+import { getCollection, getEntries } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Container from '../../components/layout/Container.astro';
+import Stack from '../../components/layout/Stack.astro';
+import Cluster from '../../components/layout/Cluster.astro';
+import Grid from '../../components/layout/Grid.astro';
+import Card from '../../components/primitives/Card.astro';
+import Badge from '../../components/primitives/Badge.astro';
+import Breadcrumbs from '../../components/primitives/Breadcrumbs.astro';
+import { PHASES_ORDERED, PHASE_META } from '../../lib/phases';
+import { base, scenariosIndexHref, productHref, capabilityHref } from '../../lib/urls';
+import type { CollectionEntry } from 'astro:content';
+
+export async function getStaticPaths() {
+  const scenarios = await getCollection('scenarios');
+  const products = await getCollection('products');
+  const capabilities = await getCollection('capabilities');
+  const productById = new Map(products.map((p) => [p.id, p]));
+  const capabilityById = new Map(capabilities.map((c) => [c.id, c]));
+
+  return scenarios.map((scenario) => ({
+    params: { slug: scenario.id },
+    props: { scenario, productById, capabilityById },
+  }));
+}
+
+const { scenario, productById, capabilityById } = Astro.props as {
+  scenario: Awaited<ReturnType<typeof getCollection<'scenarios'>>>[number];
+  productById: Map<string, Awaited<ReturnType<typeof getCollection<'products'>>>[number]>;
+  capabilityById: Map<string, Awaited<ReturnType<typeof getCollection<'capabilities'>>>[number]>;
+};
+
+const phaseOrder: Record<string, number> = {
+  build: 1, observe: 2, govern: 3, secure: 4,
+};
+const usedPhases = Array.from(
+  new Set(scenario.data.steps.map((s) => s.phase)),
+).sort((a, b) => phaseOrder[a] - phaseOrder[b]);
+
+// Roll-up: unique products + license set across all referenced capabilities
+const allCaps = scenario.data.steps.flatMap((s) => s.capabilities);
+const uniqueCapIds = Array.from(new Set(allCaps.map((c) => c.id)));
+const uniqueCaps = uniqueCapIds
+  .map((id) => capabilityById.get(id))
+  .filter((c): c is NonNullable<typeof c> => !!c);
+
+const uniqueProductIds = Array.from(
+  new Set(uniqueCaps.map((c) => c.data.product.id)),
+);
+const uniqueProducts = uniqueProductIds
+  .map((id) => productById.get(id))
+  .filter((p): p is NonNullable<typeof p> => !!p);
+
+const uniqueLicenseIds = Array.from(
+  new Set(uniqueCaps.flatMap((c) => c.data.licenses.map((l) => l.license.id))),
+);
+const licenses = uniqueLicenseIds.length
+  ? await getEntries(
+      uniqueLicenseIds.map((id) => ({ collection: 'licenses' as const, id })),
+    )
+  : [];
+
+// Pre-resolve capability entries per step so JSX stays free of TS generics.
+const stepsResolved = scenario.data.steps.map((step) => ({
+  step,
+  meta: PHASE_META[step.phase],
+  caps: step.capabilities
+    .map((ref) => capabilityById.get(ref.id))
+    .filter((c): c is CollectionEntry<'capabilities'> => !!c),
+}));
+---
+
+<BaseLayout
+  title={scenario.data.title}
+  description={scenario.data.summary}
+>
+  <Container size="xl">
+    <Breadcrumbs
+      items={[
+        { label: 'Dashboard', href: base },
+        { label: 'Scenarios', href: scenariosIndexHref() },
+        { label: scenario.data.title },
+      ]}
+    />
+    {/* ── Hero ─────────────────────────────────────────────── */}
+    <section class="hero">
+      <Stack space="4">
+        <h1>{scenario.data.title}</h1>
+        <p class="question">"{scenario.data.question}"</p>
+        <p class="summary">{scenario.data.summary}</p>
+      </Stack>
+    </section>
+
+    {/* ── Phase ribbon ─────────────────────────────────────── */}
+    <section class="ribbon" aria-label="Lifecycle phases used in this scenario">
+      <ol class="ribbon-list">
+        {PHASES_ORDERED.map((p) => {
+          const active = usedPhases.includes(p.id);
+          return (
+            <li>
+              <a
+                href={`#step-${p.id}`}
+                class:list={['ribbon-step', active && 'active']}
+                style={`--phase-color: ${p.colorVar}`}
+              >
+                <span class="ribbon-order">0{p.order}</span>
+                <span class="ribbon-label">{p.title}</span>
+              </a>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+
+    {/* ── Steps ────────────────────────────────────────────── */}
+    <section class="section">
+      <Stack space="6">
+        {stepsResolved.map(({ step, meta, caps: stepCaps }, idx) => {
+          return (
+            <article
+              id={`step-${step.phase}`}
+              class="step"
+              style={`--phase-color: ${meta.colorVar}`}
+            >
+              <header class="step-head">
+                <span class="step-index">Step {idx + 1}</span>
+                <Cluster space="2" align="baseline">
+                  <Badge size="sm" tone="accent" swatch="var(--phase-color)">
+                    {meta.title}
+                  </Badge>
+                </Cluster>
+                <h2 class="step-heading">{step.heading}</h2>
+                <p class="step-rationale">{step.rationale}</p>
+              </header>
+              {stepCaps.length > 0 && (
+                <Grid min="18rem" space="3">
+                  {stepCaps.map((cap) => {
+                    const product = productById.get(cap.data.product.id);
+                    const firstSource = cap.data.sources[0];
+                    return (
+                      <Card padding="4" accent={meta.colorVar}>
+                        <Stack space="2">
+                          <h3 class="cap-title">
+                            <a class="cap-title-link" href={capabilityHref(cap.id)}>{cap.data.title}</a>
+                          </h3>
+                          {product && (
+                            <a class="cap-product" href={productHref(product.id)}>{product.data.title}</a>
+                          )}
+                          {cap.data.summary && (
+                            <p class="cap-summary">{cap.data.summary}</p>
+                          )}
+                          {firstSource && (
+                            <a class="cap-link" href={firstSource.url} rel="noopener">
+                              {firstSource.title} ↗
+                            </a>
+                          )}
+                        </Stack>
+                      </Card>
+                    );
+                  })}
+                </Grid>
+              )}
+            </article>
+          );
+        })}
+      </Stack>
+    </section>
+
+    {/* ── Roll-up: products + licensing ────────────────────── */}
+    <section class="section">
+      <Grid min="22rem" space="3">
+        <Card padding="5">
+          <Stack space="3">
+            <span class="eyebrow">Products you'd touch</span>
+            <ul class="chip-list">
+              {uniqueProducts.map((p) => (
+                <li>
+                  <a class="chip" href={productHref(p.id)}>{p.data.title}</a>
+                </li>
+              ))}
+            </ul>
+          </Stack>
+        </Card>
+        <Card padding="5">
+          <Stack space="3">
+            <span class="eyebrow">Licensing you'd need</span>
+            {licenses.length === 0 ? (
+              <p class="muted">No specific license requirements recorded against the capabilities in this scenario.</p>
+            ) : (
+              <ul class="chip-list">
+                {licenses.map((l) => (
+                  <li>
+                    {l.data.url ? (
+                      <a class="chip" href={l.data.url} rel="noopener">{l.data.title} ↗</a>
+                    ) : (
+                      <span class="chip">{l.data.title}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Stack>
+        </Card>
+      </Grid>
+    </section>
+
+    {/* ── Sources ──────────────────────────────────────────── */}
+    {scenario.data.sources.length > 0 && (
+      <section class="section">
+        <Card padding="5">
+          <Stack space="3">
+            <span class="eyebrow">Sources</span>
+            <ul class="src-list">
+              {scenario.data.sources.map((s) => (
+                <li><a href={s.url} rel="noopener">{s.title} ↗</a></li>
+              ))}
+            </ul>
+          </Stack>
+        </Card>
+      </section>
+    )}
+
+    {/* ── Back ─────────────────────────────────────────────── */}
+    <section class="section">
+      <a class="back" href={scenariosIndexHref()}>← All scenarios</a>
+    </section>
+  </Container>
+</BaseLayout>
+
+<style>
+  .hero {
+    padding: var(--s-10) 0 var(--s-5);
+    max-width: 60rem;
+  }
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(2rem, 1.4rem + 2vw, 2.75rem);
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+  }
+  .question {
+    margin: 0;
+    font-size: var(--fs-xl);
+    font-style: italic;
+    color: var(--fg-default);
+    line-height: 1.25;
+    max-width: 55ch;
+  }
+  .summary {
+    margin: 0;
+    font-size: var(--fs-base);
+    color: var(--fg-muted);
+    max-width: 65ch;
+  }
+
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--fg-subtle);
+  }
+  .muted { color: var(--fg-muted); margin: 0; font-size: var(--fs-sm); }
+  .section { margin-top: var(--s-8); }
+
+  /* ── Ribbon ─────────────────────────────────────────────── */
+  .ribbon {
+    margin-top: var(--s-6);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: var(--s-3) 0;
+  }
+  .ribbon-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--s-2);
+  }
+  .ribbon-step {
+    --phase-color: var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--s-2) var(--s-3);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--phase-color);
+    background: var(--bg-surface);
+    color: var(--fg-subtle);
+    text-decoration: none;
+    transition: background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out);
+  }
+  .ribbon-step.active {
+    color: var(--fg-default);
+    background: color-mix(in oklab, var(--phase-color) 10%, var(--bg-surface));
+  }
+  .ribbon-step:hover { background: var(--bg-surface-2); color: var(--fg-default); }
+  .ribbon-order {
+    font-family: var(--ff-mono);
+    font-size: var(--fs-xs);
+    color: var(--phase-color);
+    font-weight: var(--fw-semibold);
+  }
+  .ribbon-label {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+  }
+
+  /* ── Step ───────────────────────────────────────────────── */
+  .step {
+    --phase-color: var(--accent);
+    padding: var(--s-5) 0 var(--s-5) var(--s-5);
+    border-left: 4px solid var(--phase-color);
+  }
+  .step-head { display: flex; flex-direction: column; gap: var(--s-2); margin-bottom: var(--s-4); }
+  .step-index {
+    font-family: var(--ff-mono);
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--phase-color);
+    font-weight: var(--fw-semibold);
+  }
+  .step-heading {
+    margin: 0;
+    font-size: var(--fs-2xl);
+    font-weight: var(--fw-semibold);
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+  }
+  .step-rationale {
+    margin: 0;
+    color: var(--fg-default);
+    line-height: var(--lh-normal);
+    max-width: 65ch;
+  }
+
+  /* ── Capability cards ───────────────────────────────────── */
+  .cap-title { margin: 0; font-size: var(--fs-base); font-weight: var(--fw-semibold); }
+  .cap-title-link {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .cap-title-link:hover,
+  .cap-title-link:focus-visible {
+    color: var(--link);
+    border-bottom-color: currentColor;
+  }
+  .cap-product {
+    color: var(--fg-muted);
+    font-size: var(--fs-xs);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    align-self: flex-start;
+  }
+  .cap-product:hover,
+  .cap-product:focus-visible {
+    color: var(--link);
+    border-bottom-color: currentColor;
+  }
+  .cap-summary { color: var(--fg-default); font-size: var(--fs-sm); line-height: var(--lh-snug); margin: 0; }
+  .cap-link {
+    color: var(--link);
+    font-size: var(--fs-xs);
+    text-decoration: none;
+  }
+  .cap-link:hover { text-decoration: underline; }
+
+  /* ── Roll-up chips ──────────────────────────────────────── */
+  .chip-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--s-1) var(--s-3);
+    border-radius: var(--radius-full);
+    background: var(--bg-surface-2);
+    color: var(--fg-default);
+    font-size: var(--fs-sm);
+    text-decoration: none;
+    border: 1px solid var(--border);
+  }
+  .chip:hover { background: var(--bg-surface); }
+
+  .src-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+  }
+  .src-list a { color: var(--link); text-decoration: none; font-size: var(--fs-sm); }
+  .src-list a:hover { text-decoration: underline; }
+
+  .back {
+    display: inline-block;
+    color: var(--fg-muted);
+    text-decoration: none;
+    font-size: var(--fs-sm);
+  }
+  .back:hover { color: var(--fg-default); }
+
+  @media (max-width: 720px) {
+    .ribbon-list { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>

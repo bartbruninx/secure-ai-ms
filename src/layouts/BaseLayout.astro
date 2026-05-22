@@ -1,0 +1,288 @@
+---
+import '../styles/tokens.css';
+import '../styles/reset.css';
+import '../styles/global.css';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import Container from '../components/layout/Container.astro';
+import { PHASES_ORDERED } from '../lib/phases';
+import { base, phaseHref, scenariosIndexHref, productsIndexHref, frameworksIndexHref } from '../lib/urls';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const siteName = 'secure-ai-ms';
+const fullTitle = title === siteName ? title : `${title} · ${siteName}`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{fullTitle}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+
+    {/* Theme bootstrap — runs before stylesheets render to avoid FOUC.
+        Resolves stored mode ('light'|'dark'|'auto'|null) against the
+        OS preference and writes data-theme on <html>. */}
+    <script is:inline>
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+          var mode = saved === 'light' || saved === 'dark' || saved === 'auto' ? saved : 'auto';
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var resolved = mode === 'auto' ? (prefersDark ? 'dark' : 'light') : mode;
+          document.documentElement.dataset.theme = resolved;
+          document.documentElement.dataset.themeMode = mode;
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light';
+          document.documentElement.dataset.themeMode = 'auto';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <a href="#main" class="skip-link">Skip to main content</a>
+
+    <header class="site-header">
+      <Container size="xl">
+        <div class="header-inner">
+          <a href={base} class="brand" aria-label={`${siteName} home`}>
+            <span class="brand-mark" aria-hidden="true"></span>
+            <span class="brand-name">{siteName}</span>
+          </a>
+          <nav aria-label="Primary">
+            <ul class="nav">
+              <li><a class="nav-link" href={base}>Dashboard</a></li>
+              <li class="has-submenu">
+                <details class="submenu">
+                  <summary aria-label="Lifecycle phases">
+                    Lifecycle
+                    <span class="chev" aria-hidden="true">▾</span>
+                  </summary>
+                  <ul class="submenu-list" role="menu">
+                    {PHASES_ORDERED.map((p) => (
+                      <li role="none">
+                        <a
+                          role="menuitem"
+                          href={phaseHref(p.id)}
+                          style={`--phase-color: ${p.colorVar}`}
+                        >
+                          <span class="submenu-order">0{p.order}</span>
+                          <span class="submenu-label">{p.title}</span>
+                          <span class="submenu-q">{p.heroQuestion}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </li>
+              <li><a class="nav-link" href={scenariosIndexHref()}>Scenarios</a></li>
+              <li><a class="nav-link" href={productsIndexHref()}>Products</a></li>
+              <li><a class="nav-link" href={frameworksIndexHref()}>Frameworks</a></li>
+            </ul>
+          </nav>
+          <div class="toggle-slot">
+            <ThemeToggle />
+          </div>
+        </div>
+      </Container>
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <Container size="xl">
+        <p>
+          <small>
+            Static reference site mapping Microsoft security solutions for AI environments
+            against published security frameworks. Content is for guidance only — verify against
+            <a href="https://learn.microsoft.com/" rel="noopener">Microsoft Learn</a>.
+          </small>
+        </p>
+      </Container>
+    </footer>
+
+    <style>
+      .skip-link {
+        position: absolute;
+        left: var(--s-3);
+        top: var(--s-3);
+        padding: var(--s-2) var(--s-3);
+        background: var(--accent);
+        color: var(--fg-on-accent);
+        border-radius: var(--radius-md);
+        transform: translateY(-200%);
+        transition: transform var(--dur-fast) var(--ease-out);
+        z-index: 100;
+      }
+      .skip-link:focus { transform: translateY(0); }
+
+      /* ── Header shell ─────────────────────────────────────── */
+      .site-header {
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-surface);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: saturate(180%) blur(8px);
+      }
+      .header-inner {
+        display: flex;
+        align-items: center;
+        gap: var(--s-5);
+        padding: var(--s-3) 0;
+      }
+
+      /* ── Brand ────────────────────────────────────────────── */
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--s-2);
+        font-weight: var(--fw-semibold);
+        color: var(--fg-default);
+        font-size: var(--fs-base);
+        letter-spacing: -0.01em;
+      }
+      .brand:hover { color: var(--fg-default); text-decoration: none; }
+      .brand-mark {
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: var(--radius-sm);
+        background: linear-gradient(135deg, var(--accent), var(--phase-protect));
+      }
+
+      /* ── Primary nav ──────────────────────────────────────── */
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: var(--s-5);
+        font-size: var(--fs-sm);
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .toggle-slot { margin-left: auto; }
+      .nav > li {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+      .nav-link,
+      .submenu > summary {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--s-1);
+        color: var(--fg-muted);
+        font-weight: var(--fw-medium);
+        padding: var(--s-1) 0;
+        text-decoration: none;
+        cursor: pointer;
+        position: relative;
+        background: transparent;
+        border: 0;
+        font: inherit;
+      }
+      .nav-link::after,
+      .submenu > summary::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -2px;
+        height: 2px;
+        background: var(--accent);
+        border-radius: var(--radius-full);
+        opacity: 0;
+        transition: opacity var(--dur-fast) var(--ease-out);
+      }
+      .nav-link:hover,
+      .submenu > summary:hover { color: var(--fg-default); text-decoration: none; }
+      .nav-link:hover::after,
+      .submenu > summary:hover::after,
+      .submenu[open] > summary::after { opacity: 1; }
+
+      /* ── Lifecycle dropdown (zero-JS via <details>) ───────── */
+      .submenu > summary { list-style: none; }
+      .submenu > summary::-webkit-details-marker { display: none; }
+      .chev {
+        font-size: 0.7em;
+        line-height: 1;
+        transition: transform var(--dur-fast) var(--ease-out);
+        color: var(--fg-subtle);
+      }
+      .submenu[open] > summary .chev { transform: rotate(180deg); }
+
+      .submenu-list {
+        position: absolute;
+        top: calc(100% + var(--s-3));
+        left: 50%;
+        transform: translateX(-50%);
+        min-width: 22rem;
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        list-style: none;
+        margin: 0;
+        padding: var(--s-2);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        z-index: 20;
+      }
+      .submenu-list a {
+        --phase-color: var(--accent);
+        display: grid;
+        grid-template-columns: auto 1fr;
+        grid-template-rows: auto auto;
+        column-gap: var(--s-3);
+        row-gap: 2px;
+        align-items: baseline;
+        padding: var(--s-2) var(--s-3);
+        border-radius: var(--radius-md);
+        border-left: 3px solid var(--phase-color);
+        color: var(--fg-default);
+        text-decoration: none;
+      }
+      .submenu-list a:hover { background: var(--bg-surface-2); }
+      .submenu-order {
+        grid-row: 1 / span 2;
+        font-family: var(--ff-mono);
+        font-size: var(--fs-xs);
+        color: var(--phase-color);
+        font-weight: var(--fw-semibold);
+        align-self: center;
+      }
+      .submenu-label {
+        font-weight: var(--fw-semibold);
+        font-size: var(--fs-sm);
+        color: var(--fg-default);
+      }
+      .submenu-q {
+        font-size: var(--fs-xs);
+        color: var(--fg-muted);
+        line-height: var(--lh-snug);
+      }
+
+      /* ── Footer ───────────────────────────────────────────── */
+      .site-footer {
+        margin-top: var(--s-12);
+        padding: var(--s-6) 0;
+        border-top: 1px solid var(--border);
+        color: var(--fg-muted);
+      }
+
+      @media (max-width: 720px) {
+        .nav { display: none; }
+      }
+    </style>
+  </body>
+</html>

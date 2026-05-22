@@ -1,0 +1,405 @@
+---
+import { getCollection, getEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Container from '../../components/layout/Container.astro';
+import Stack from '../../components/layout/Stack.astro';
+import Cluster from '../../components/layout/Cluster.astro';
+import Grid from '../../components/layout/Grid.astro';
+import Card from '../../components/primitives/Card.astro';
+import Badge from '../../components/primitives/Badge.astro';
+import Breadcrumbs from '../../components/primitives/Breadcrumbs.astro';
+import {
+  indexCapabilitiesByProduct,
+  indexCapabilitiesByAppliesToProduct,
+} from '../../lib/coverage';
+import { PHASE_META } from '../../lib/phases';
+import {
+  base,
+  capabilityHref,
+  productsIndexHref,
+  scenarioHref,
+} from '../../lib/urls';
+import type { LifecyclePhase } from '../../content.config';
+
+export async function getStaticPaths() {
+  const products = await getCollection('products');
+  return products.map((p) => ({ params: { slug: p.id }, props: { productId: p.id } }));
+}
+
+const { productId } = Astro.props as { productId: string };
+
+const [product, vendors, categories, licenses, products, capabilities, scenarios] =
+  await Promise.all([
+    getEntry('products', productId),
+    getCollection('vendors'),
+    getCollection('categories'),
+    getCollection('licenses'),
+    getCollection('products'),
+    getCollection('capabilities'),
+    getCollection('scenarios'),
+  ]);
+
+if (!product) throw new Error(`Product not found: ${productId}`);
+
+const vendor = vendors.find((v) => v.id === product.data.vendor.id);
+const categoryById = new Map(categories.map((c) => [c.id, c]));
+const licenseById = new Map(licenses.map((l) => [l.id, l]));
+const productById = new Map(products.map((p) => [p.id, p]));
+
+const capsByProduct = indexCapabilitiesByProduct(capabilities);
+const capsByApplies = indexCapabilitiesByAppliesToProduct(capabilities);
+
+const nativeCaps = (capsByProduct.get(product.id) ?? [])
+  .slice()
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+const governingCaps = (capsByApplies.get(product.id) ?? [])
+  .slice()
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+// Union of categories across all native capabilities for the chip strip.
+const allCategoryIds = new Set<string>(product.data.categories.map((c) => c.id));
+for (const cap of nativeCaps) for (const c of cap.data.categories) allCategoryIds.add(c.id);
+const productCategories = [...allCategoryIds]
+  .map((id) => categoryById.get(id))
+  .filter((c): c is NonNullable<typeof c> => Boolean(c))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+// Union of licenses required by native capabilities.
+const allLicenseIds = new Set<string>();
+for (const cap of nativeCaps) for (const l of cap.data.licenses) allLicenseIds.add(l.license.id);
+const productLicenses = [...allLicenseIds]
+  .map((id) => licenseById.get(id))
+  .filter((l): l is NonNullable<typeof l> => Boolean(l))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+// Scenarios that reference any capability owned by this product.
+const nativeCapIds = new Set(nativeCaps.map((c) => c.id));
+const relatedScenarios = scenarios
+  .filter((s) =>
+    s.data.steps.some((st) => st.capabilities.some((c) => nativeCapIds.has(c.id))),
+  )
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+const statusTone = (s: 'published' | 'draft' | 'deprecated') =>
+  s === 'published' ? 'success' : s === 'draft' ? 'warning' : 'neutral';
+
+const phaseHrefLocal = (id: string) => `${base}${id}`;
+
+// Primary accent color comes from the first listed primary phase, else neutral.
+const primaryPhase = product.data.primaryPhases[0] as LifecyclePhase | undefined;
+const accent = primaryPhase ? PHASE_META[primaryPhase].colorVar : 'var(--accent)';
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  'maker-tool': 'Maker tool',
+  'runtime-platform': 'Runtime platform',
+  'security-control': 'Security control',
+  'discovery': 'Discovery',
+};
+---
+
+<BaseLayout
+  title={product.data.title}
+  description={product.data.summary ?? `${product.data.title} — capabilities, licenses and lifecycle coverage.`}
+>
+  <Container size="xl">
+    <Breadcrumbs
+      accent={accent}
+      items={[
+        { label: 'Dashboard', href: base },
+        { label: 'Products', href: productsIndexHref() },
+        { label: product.data.title },
+      ]}
+    />
+
+    {/* ── Hero ─────────────────────────────────────────────── */}
+    <section class="hero" style={`--accent: ${accent}`}>
+      <Stack space="3">
+        <h1>{product.data.title}</h1>
+        {product.data.summary && <p class="lede">{product.data.summary}</p>}
+        <Cluster space="2">
+          {vendor && <Badge size="sm">{vendor.data.title}</Badge>}
+          <Badge size="sm" tone="info">{ROLE_LABELS[product.data.role] ?? product.data.role}</Badge>
+          <Badge size="sm" tone={statusTone(product.data.status)}>{product.data.status}</Badge>
+          {product.data.primaryPhases.map((p) => {
+            const meta = PHASE_META[p];
+            return (
+              <a class="phase-pill" href={phaseHrefLocal(p)} style={`--phase-color: ${meta.colorVar}`}>
+                <span class="phase-dot" aria-hidden="true"></span>
+                {meta.title}
+              </a>
+            );
+          })}
+        </Cluster>
+        {product.data.url && (
+          <Cluster space="2">
+            <a class="learn-link" href={product.data.url} rel="noopener">
+              Microsoft Learn ↗
+            </a>
+            {product.data.sources.map((s) => (
+              <a class="source-chip" href={s.url} rel="noopener" title={s.title}>
+                {hostOf(s.url)} ↗
+              </a>
+            ))}
+          </Cluster>
+        )}
+      </Stack>
+    </section>
+
+    <Grid min="20rem" space="5">
+      {/* ── Categories ───────────────────────────────────── */}
+      {productCategories.length > 0 && (
+        <Card padding="5">
+          <Stack space="3">
+            <span class="eyebrow">Categories</span>
+            <Cluster space="2">
+              {productCategories.map((c) => <Badge size="sm">{c.data.title}</Badge>)}
+            </Cluster>
+          </Stack>
+        </Card>
+      )}
+
+      {/* ── Licenses required ────────────────────────────── */}
+      {productLicenses.length > 0 && (
+        <Card padding="5">
+          <Stack space="3">
+            <span class="eyebrow">Licensing footprint</span>
+            <ul class="lic-list">
+              {productLicenses.map((l) => (
+                <li>
+                  {l.data.url ? (
+                    <a href={l.data.url} rel="noopener">{l.data.title} ↗</a>
+                  ) : (
+                    <span>{l.data.title}</span>
+                  )}
+                  {l.data.summary && <small class="muted"> — {l.data.summary}</small>}
+                </li>
+              ))}
+            </ul>
+          </Stack>
+        </Card>
+      )}
+    </Grid>
+
+    {/* ── Native capabilities ──────────────────────────────── */}
+    <section class="section" aria-labelledby="native-heading">
+      <Stack space="4">
+        <Stack space="1">
+          <span class="eyebrow">Capabilities</span>
+          <h2 id="native-heading">
+            What {product.data.title} does
+            <span class="count">({nativeCaps.length})</span>
+          </h2>
+        </Stack>
+        {nativeCaps.length === 0 ? (
+          <p class="empty">No capabilities authored for this product yet.</p>
+        ) : (
+          <Grid min="20rem" space="3">
+            {nativeCaps.map((cap) => {
+              const meta = PHASE_META[cap.data.phase];
+              return (
+                <a class="cap-card-link" href={capabilityHref(cap.id)}>
+                  <Card padding="4" accent={meta.colorVar}>
+                    <Stack space="2">
+                      <Cluster space="2" justify="between" align="baseline">
+                        <h3 class="cap-title">{cap.data.title}</h3>
+                        <Badge size="sm" tone={statusTone(cap.data.status)}>{cap.data.status}</Badge>
+                      </Cluster>
+                      <Cluster space="2">
+                        <Badge size="sm" swatch={meta.colorVar}>{meta.title}</Badge>
+                        {cap.data.supportingPhases.map((p) => (
+                          <Badge size="sm" swatch={PHASE_META[p].colorVar}>
+                            +{PHASE_META[p].shortLabel}
+                          </Badge>
+                        ))}
+                      </Cluster>
+                      {cap.data.summary && <p class="cap-summary">{cap.data.summary}</p>}
+                    </Stack>
+                  </Card>
+                </a>
+              );
+            })}
+          </Grid>
+        )}
+      </Stack>
+    </section>
+
+    {/* ── Governed & monitored by (cross-product) ──────────── */}
+    {governingCaps.length > 0 && (
+      <section class="section" aria-labelledby="govern-heading">
+        <Stack space="4">
+          <Stack space="1">
+            <span class="eyebrow">Cross-product governance</span>
+            <h2 id="govern-heading">
+              Governed &amp; monitored by
+              <span class="count">({governingCaps.length})</span>
+            </h2>
+            <p class="muted">
+              Capabilities from other products that watch over, assess or
+              monitor {product.data.title}.
+            </p>
+          </Stack>
+          <Grid min="22rem" space="3">
+            {governingCaps.map((cap) => {
+              const owner = productById.get(cap.data.product.id);
+              const meta = PHASE_META[cap.data.phase];
+              return (
+                <a class="cap-card-link" href={capabilityHref(cap.id)}>
+                  <Card padding="4" accent={meta.colorVar}>
+                    <Stack space="2">
+                      <Cluster space="2" justify="between" align="baseline">
+                        <h3 class="cap-title">{cap.data.title}</h3>
+                        <Badge size="sm" tone={statusTone(cap.data.status)}>{cap.data.status}</Badge>
+                      </Cluster>
+                      {owner && (
+                        <small class="muted">
+                          via <span class="owner">{owner.data.title}</span>
+                        </small>
+                      )}
+                      <Cluster space="2">
+                        <Badge size="sm" swatch={meta.colorVar}>{meta.title}</Badge>
+                      </Cluster>
+                      {cap.data.summary && <p class="cap-summary">{cap.data.summary}</p>}
+                    </Stack>
+                  </Card>
+                </a>
+              );
+            })}
+          </Grid>
+        </Stack>
+      </section>
+    )}
+
+    {/* ── Scenarios using this product ─────────────────────── */}
+    {relatedScenarios.length > 0 && (
+      <section class="section" aria-labelledby="scenarios-heading">
+        <Stack space="4">
+          <Stack space="1">
+            <span class="eyebrow">Scenarios</span>
+            <h2 id="scenarios-heading">
+              Walkthroughs that use {product.data.title}
+              <span class="count">({relatedScenarios.length})</span>
+            </h2>
+          </Stack>
+          <Grid min="22rem" space="3">
+            {relatedScenarios.map((s) => (
+              <a class="cap-card-link" href={scenarioHref(s.id)}>
+                <Card padding="4">
+                  <Stack space="2">
+                    <h3 class="cap-title">{s.data.title}</h3>
+                    <p class="cap-summary">"{s.data.question}"</p>
+                  </Stack>
+                </Card>
+              </a>
+            ))}
+          </Grid>
+        </Stack>
+      </section>
+    )}
+
+    {/* ── Back link ────────────────────────────────────────── */}
+    <section class="section">
+      <a class="back" href={productsIndexHref()}>← All products</a>
+    </section>
+  </Container>
+</BaseLayout>
+
+<style>
+  .hero {
+    padding: var(--s-6) 0 var(--s-5);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 {
+    font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .lede {
+    color: var(--fg-muted);
+    font-size: var(--fs-lg);
+    line-height: 1.5;
+    max-width: 60ch;
+    margin: 0;
+  }
+  .phase-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    padding: 2px var(--s-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    color: var(--fg-default);
+    font-size: var(--fs-sm);
+    text-decoration: none;
+    transition: background var(--dur-fast) var(--ease-out);
+  }
+  .phase-pill:hover { background: var(--bg-surface-2); text-decoration: none; }
+  .phase-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--phase-color, var(--accent));
+  }
+  .learn-link {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+  }
+  .source-chip {
+    font-size: var(--fs-sm);
+    color: var(--fg-muted);
+    padding: 2px var(--s-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+  }
+  .source-chip:hover { background: var(--bg-surface-2); text-decoration: none; }
+
+  .section { padding: var(--s-6) 0; }
+  .eyebrow {
+    color: var(--fg-muted);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  h2 { margin: 0; font-size: var(--fs-xl); }
+  .count { color: var(--fg-muted); font-weight: var(--fw-regular); margin-left: var(--s-1); }
+
+  .cap-card-link { display: block; text-decoration: none; color: inherit; }
+  .cap-card-link:hover { text-decoration: none; }
+  .cap-card-link :global(.card) {
+    transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  }
+  .cap-card-link:hover :global(.card) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px -4px rgb(0 0 0 / 0.12);
+  }
+  .cap-title { margin: 0; font-size: var(--fs-base); font-weight: var(--fw-semibold); }
+  .cap-summary { margin: 0; color: var(--fg-muted); font-size: var(--fs-sm); line-height: 1.5; }
+  .owner { color: var(--fg-default); font-weight: var(--fw-medium); }
+
+  .lic-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+  .lic-list li { font-size: var(--fs-sm); }
+  .muted { color: var(--fg-muted); }
+  .empty { color: var(--fg-muted); font-style: italic; }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    color: var(--fg-muted);
+    text-decoration: none;
+    font-size: var(--fs-sm);
+  }
+  .back:hover { color: var(--fg-default); }
+</style>

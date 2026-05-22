@@ -1,0 +1,11 @@
+title: Microsoft 365 E5
+vendor: microsoft
+sku: M365 E5
+url: https://www.microsoft.com/en-us/microsoft-365/enterprise/e5
+summary: >-
+  Top-tier Microsoft 365 enterprise plan that bundles the security and
+  compliance entitlements most Agent 365 and Purview AI capabilities depend on.
+status: published
+sources:
+  - title: Microsoft 365 Enterprise plans
+    url: https://www.microsoft.com/en-us/microsoft-365/enterprise/microsoft365-plans-and-pricing

@@ -1,0 +1,39 @@
+title: MCSB compliance assessment for AI workloads
+product: microsoft-defender-for-cloud
+phase: govern
+supportingPhases:
+  - observe
+appliesTo:
+  - runtime-platform
+  - maker-tool
+appliesToProducts:
+  - azure-ai-foundry
+summary: >-
+  Defender for Cloud's Regulatory Compliance dashboard continuously
+  assesses Azure AI Foundry resources against the Microsoft Cloud
+  Security Benchmark (MCSB) — covering identity, data protection,
+  network isolation, logging and posture controls drawn from the
+  Azure security baseline for AI Foundry. Results surface per
+  subscription with remediation guidance for each failed control.
+categories:
+  - posture-management
+  - governance
+licenses:
+  - license: microsoft-defender-cspm
+    required: false
+    note: >-
+      The Microsoft Cloud Security Benchmark standard is on by default
+      with the Foundational CSPM plan; Defender CSPM extends with
+      attack-path analysis and additional regulatory standards.
+status: draft
+lastReviewed: 2026-05-22
+sources:
+  - title: Azure security baseline for Azure AI Foundry
+    url: https://learn.microsoft.com/en-us/security/benchmark/azure/baselines/azure-ai-foundry-security-baseline
+    accessedOn: 2026-05-22
+  - title: Improve your regulatory compliance — Microsoft Defender for Cloud
+    url: https://learn.microsoft.com/en-us/azure/defender-for-cloud/regulatory-compliance-dashboard
+    accessedOn: 2026-05-22
+  - title: Microsoft Cloud Security Benchmark in Defender for Cloud
+    url: https://learn.microsoft.com/en-us/azure/defender-for-cloud/concept-regulatory-compliance
+    accessedOn: 2026-05-22

@@ -1,0 +1,15 @@
+title: AI-aware SIEM and SOAR
+product: microsoft-sentinel
+phase: secure
+summary: >-
+  Sentinel ingests AI signals from Defender XDR, Purview AI Hub and
+  Foundry, correlates them with the rest of the SIEM signal, and runs
+  agent-specific playbooks to disable, isolate or investigate
+  compromised agents.
+categories:
+  - threat-protection
+  - monitoring
+status: published
+sources:
+  - title: Microsoft Sentinel documentation
+    url: https://learn.microsoft.com/en-us/azure/sentinel/

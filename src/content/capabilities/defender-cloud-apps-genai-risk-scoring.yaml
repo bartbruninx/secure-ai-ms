@@ -1,0 +1,16 @@
+title: GenAI app risk scoring
+product: microsoft-defender-for-cloud-apps
+phase: observe
+supportingPhases:
+  - govern
+summary: >-
+  Each discovered GenAI app gets a risk score across compliance, security
+  and general categories, with the option to mark apps as sanctioned or
+  unsanctioned and apply session policies to the unsanctioned ones.
+categories:
+  - governance
+  - ai-safety
+status: published
+sources:
+  - title: App risk scores in Microsoft Defender for Cloud Apps
+    url: https://learn.microsoft.com/en-us/defender-cloud-apps/risk-score

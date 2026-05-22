@@ -1,0 +1,17 @@
+title: Microsoft Copilot Studio
+vendor: microsoft
+role: maker-tool
+primaryPhases:
+  - build
+summary: >-
+  Low-code platform for building custom Copilots and autonomous agents. Ships
+  with content filters, prompt shields, DLP, environment isolation and maker
+  governance so security starts at design time.
+url: https://learn.microsoft.com/en-us/microsoft-copilot-studio/
+categories:
+  - ai-safety
+  - governance
+status: published
+sources:
+  - title: Microsoft Copilot Studio documentation
+    url: https://learn.microsoft.com/en-us/microsoft-copilot-studio/

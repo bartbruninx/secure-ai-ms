@@ -1,0 +1,15 @@
+title: Agent threat detections in XDR
+product: microsoft-defender-xdr
+phase: secure
+summary: >-
+  Defender XDR raises incidents when an agent exhibits suspicious
+  behaviour — being prompt-injected, suddenly accessing unusual data, or
+  being used as the vector for exfiltration — in the same incident queue
+  used for users and devices.
+categories:
+  - threat-protection
+  - monitoring
+status: published
+sources:
+  - title: Microsoft Defender XDR documentation
+    url: https://learn.microsoft.com/en-us/defender-xdr/

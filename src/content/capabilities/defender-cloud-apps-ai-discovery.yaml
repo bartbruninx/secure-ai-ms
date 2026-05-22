@@ -1,0 +1,14 @@
+title: GenAI app discovery
+product: microsoft-defender-for-cloud-apps
+phase: observe
+summary: >-
+  Defender for Cloud Apps catalogs the GenAI apps in use across the
+  workforce from network and endpoint telemetry, reporting which apps are
+  active, how many users they have and how much data flows to each.
+categories:
+  - monitoring
+  - ai-safety
+status: published
+sources:
+  - title: AI apps discovery in Microsoft Defender for Cloud Apps
+    url: https://learn.microsoft.com/en-us/defender-cloud-apps/ai-overview

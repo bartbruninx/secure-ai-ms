@@ -1,0 +1,20 @@
+title: Microsoft Purview
+vendor: microsoft
+role: security-control
+primaryPhases:
+  - observe
+  - govern
+summary: >-
+  Microsoft's data security and compliance suite. The AI Hub surfaces
+  sensitive content sent to AI apps; DLP, sensitivity labels, insider risk
+  and eDiscovery extend the existing data-protection stack to cover Copilot
+  and agent interactions.
+url: https://learn.microsoft.com/en-us/purview/
+categories:
+  - data-protection
+  - governance
+  - monitoring
+status: published
+sources:
+  - title: Microsoft Purview documentation
+    url: https://learn.microsoft.com/en-us/purview/

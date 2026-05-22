@@ -1,0 +1,19 @@
+title: Microsoft Entra
+vendor: microsoft
+role: security-control
+primaryPhases:
+  - observe
+  - govern
+summary: >-
+  Microsoft's identity platform. Provides Entra Agent ID for first-class
+  agent identities, Conditional Access policies that govern which users can
+  invoke which agents, and ID Governance for agent sponsors, access reviews
+  and lifecycle.
+url: https://learn.microsoft.com/en-us/entra/
+categories:
+  - identity
+  - governance
+status: published
+sources:
+  - title: Microsoft Entra documentation
+    url: https://learn.microsoft.com/en-us/entra/

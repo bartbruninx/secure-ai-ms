@@ -1,0 +1,16 @@
+title: Prompt Shields
+product: azure-ai-foundry
+phase: build
+appliesTo:
+  - maker-tool
+summary: >-
+  Detects direct prompt-injection attempts and indirect attacks embedded in
+  documents the model retrieves, blocking the conversation before the model
+  acts on the adversarial instructions.
+categories:
+  - ai-safety
+  - threat-protection
+status: published
+sources:
+  - title: Prompt Shields in Azure AI Content Safety
+    url: https://learn.microsoft.com/en-us/azure/ai-services/content-safety/concepts/jailbreak-detection

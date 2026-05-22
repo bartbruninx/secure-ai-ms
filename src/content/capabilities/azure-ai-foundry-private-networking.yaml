@@ -1,0 +1,16 @@
+title: Private networking and Virtual Network integration
+product: azure-ai-foundry
+phase: build
+appliesTo:
+  - maker-tool
+summary: >-
+  Foundry endpoints can be deployed behind private endpoints inside a
+  customer-managed Virtual Network, with outbound traffic restricted by
+  egress controls, so prompts and grounding data never traverse the
+  public internet.
+categories:
+  - network-security
+status: published
+sources:
+  - title: Network isolation in Azure AI Foundry
+    url: https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/configure-private-link

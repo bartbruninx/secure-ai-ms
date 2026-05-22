@@ -1,0 +1,110 @@
+---
+/**
+ * Breadcrumbs — modern, minimal trail showing where the current page sits
+ * in the site hierarchy. Last item is treated as the current page and is
+ * rendered as text (not a link) with aria-current="page".
+ */
+export interface Crumb {
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  items: Crumb[];
+  /** Optional CSS color (token reference) for the accent dot at the start. */
+  accent?: string;
+}
+
+const { items, accent } = Astro.props;
+---
+
+<nav class="crumbs" aria-label="Breadcrumb" style={accent ? `--crumb-accent: ${accent}` : undefined}>
+  <ol class="crumbs-list">
+    {items.map((item, i) => {
+      const isLast = i === items.length - 1;
+      return (
+        <li class="crumb">
+          {i === 0 && <span class="crumb-dot" aria-hidden="true"></span>}
+          {isLast || !item.href ? (
+            <span class="crumb-current" aria-current={isLast ? 'page' : undefined}>
+              {item.label}
+            </span>
+          ) : (
+            <a class="crumb-link" href={item.href}>{item.label}</a>
+          )}
+          {!isLast && (
+            <span class="crumb-sep" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4.5 2.5 L8 6 L4.5 9.5" />
+              </svg>
+            </span>
+          )}
+        </li>
+      );
+    })}
+  </ol>
+</nav>
+
+<style>
+  .crumbs {
+    --crumb-accent: var(--accent);
+    font-size: var(--fs-sm);
+    color: var(--fg-muted);
+    padding: var(--s-3) 0 var(--s-2);
+  }
+  .crumbs-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1);
+  }
+  .crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    min-width: 0;
+  }
+  .crumb-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--crumb-accent);
+    margin-right: var(--s-1);
+    flex: 0 0 auto;
+  }
+  .crumb-link {
+    color: var(--fg-muted);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    padding: 2px 4px;
+    margin: -2px -4px;
+    transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+  }
+  .crumb-link:hover {
+    color: var(--fg-default);
+    background: var(--bg-surface-2);
+    text-decoration: none;
+  }
+  .crumb-current {
+    color: var(--fg-default);
+    font-weight: var(--fw-medium);
+    /* keep last crumb readable but not loud */
+    max-width: 32rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .crumb-sep {
+    display: inline-flex;
+    align-items: center;
+    color: var(--fg-subtle, var(--fg-muted));
+    opacity: 0.6;
+    margin: 0 2px;
+  }
+  @media (max-width: 480px) {
+    .crumb-current { max-width: 14rem; }
+  }
+</style>

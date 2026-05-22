@@ -1,0 +1,94 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Container from '../components/layout/Container.astro';
+import Stack from '../components/layout/Stack.astro';
+import Cluster from '../components/layout/Cluster.astro';
+import Grid from '../components/layout/Grid.astro';
+import Card from '../components/primitives/Card.astro';
+import Badge from '../components/primitives/Badge.astro';
+import Breadcrumbs from '../components/primitives/Breadcrumbs.astro';
+import { base } from '../lib/urls';
+
+const frameworks = (await getCollection('frameworks')).sort((a, b) =>
+  a.data.title.localeCompare(b.data.title),
+);
+
+const statusTone = (s: 'published' | 'draft' | 'deprecated') =>
+  s === 'published' ? 'success' : s === 'draft' ? 'warning' : 'neutral';
+---
+
+<BaseLayout
+  title="Frameworks"
+  description="Security frameworks referenced by secure-ai-ms — used for optional capability-to-control mappings."
+>
+  <Container size="xl">
+    <Breadcrumbs
+      items={[
+        { label: 'Dashboard', href: base },
+        { label: 'Frameworks' },
+      ]}
+    />
+    <section class="hero">
+      <Stack space="3">
+        <h1>Frameworks</h1>
+        <p class="lede">
+          The site is organised around the Microsoft AI security lifecycle.
+          Frameworks listed here are reference data — capabilities may optionally
+          map to controls within them when it helps an auditor.
+        </p>
+      </Stack>
+    </section>
+
+    <section class="section">
+      {frameworks.length === 0 ? (
+        <p class="empty">No frameworks authored yet.</p>
+      ) : (
+        <Grid min="20rem" space="3">
+          {frameworks.map((f) => (
+            <Card padding="5">
+              <Stack space="3">
+                <Cluster space="2" justify="between" align="baseline">
+                  <h2 class="fw-title">{f.data.title}</h2>
+                  <Badge size="sm" tone={statusTone(f.data.status)}>{f.data.status}</Badge>
+                </Cluster>
+                <Cluster space="2">
+                  {f.data.publisher && <Badge size="sm">{f.data.publisher}</Badge>}
+                  {f.data.version && <Badge size="sm" tone="info">v{f.data.version}</Badge>}
+                </Cluster>
+                {f.data.summary && <p class="muted">{f.data.summary}</p>}
+                {f.data.url && (
+                  <a class="fw-link" href={f.data.url} rel="noopener">
+                    Visit publisher ↗
+                  </a>
+                )}
+              </Stack>
+            </Card>
+          ))}
+        </Grid>
+      )}
+    </section>
+  </Container>
+</BaseLayout>
+
+<style>
+  .hero { padding: var(--s-10) 0 var(--s-5); max-width: 60rem; }
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(2rem, 1.4rem + 2vw, 2.75rem);
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+  }
+  .lede { font-size: var(--fs-lg); color: var(--fg-muted); margin: 0; max-width: 55ch; }
+  .section { margin-top: var(--s-6); }
+  .empty { color: var(--fg-subtle); font-style: italic; }
+  .muted { color: var(--fg-muted); margin: 0; font-size: var(--fs-sm); line-height: var(--lh-snug); }
+  .fw-title { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-semibold); letter-spacing: -0.01em; }
+  .fw-link {
+    font-size: var(--fs-sm);
+    color: var(--link);
+    text-decoration: none;
+    font-weight: var(--fw-medium);
+  }
+  .fw-link:hover { text-decoration: underline; }
+</style>

@@ -1,0 +1,13 @@
+title: Usage analytics
+product: microsoft-agent-365
+phase: observe
+summary: >-
+  Per-agent dashboards showing active users, prompt volume, response
+  latency and adoption trends, so owners can spot dormant agents and
+  security can spot anomalous usage.
+categories:
+  - monitoring
+status: published
+sources:
+  - title: Microsoft Agent 365
+    url: https://www.microsoft.com/en-us/microsoft-365/agent-365

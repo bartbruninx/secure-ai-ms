@@ -1,0 +1,18 @@
+title: Data Loss Prevention policies (DLP)
+product: microsoft-copilot-studio
+phase: build
+supportingPhases:
+  - govern
+appliesTo:
+  - maker-tool
+summary: >-
+  Power Platform DLP classifies every connector as business, non-business
+  or blocked, preventing makers from combining connectors in ways that
+  would exfiltrate corporate data through a Copilot.
+categories:
+  - data-protection
+  - governance
+status: published
+sources:
+  - title: Data Loss Prevention policies for Power Platform
+    url: https://learn.microsoft.com/en-us/power-platform/admin/wp-data-loss-prevention

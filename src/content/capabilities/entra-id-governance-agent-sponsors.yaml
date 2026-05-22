@@ -1,0 +1,14 @@
+title: Agent sponsors and access reviews
+product: microsoft-entra
+phase: govern
+summary: >-
+  Microsoft Entra ID Governance assigns each agent a human sponsor who is
+  accountable for it, runs periodic access reviews over the agent's
+  permissions and triggers lifecycle workflows when sponsorship changes.
+categories:
+  - governance
+  - identity
+status: published
+sources:
+  - title: Microsoft Entra ID Governance
+    url: https://learn.microsoft.com/en-us/entra/id-governance/identity-governance-overview

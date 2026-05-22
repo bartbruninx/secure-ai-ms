@@ -1,0 +1,15 @@
+title: Audit logs for agents
+product: microsoft-purview
+phase: observe
+supportingPhases:
+  - secure
+summary: >-
+  Agent interactions, tool calls and data accesses flow into the unified
+  Microsoft Purview Audit pipeline alongside user activity, with the same
+  retention, search and export semantics.
+categories:
+  - monitoring
+status: published
+sources:
+  - title: Microsoft Purview Audit
+    url: https://learn.microsoft.com/en-us/purview/audit-solutions-overview

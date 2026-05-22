@@ -1,0 +1,15 @@
+title: Azure AI Content Safety
+product: azure-ai-foundry
+phase: build
+appliesTo:
+  - maker-tool
+summary: >-
+  Built-in content moderation for any model deployed via Foundry. Detects
+  hate, violence, sexual and self-harm categories on both inbound prompts
+  and model outputs, with configurable severity thresholds.
+categories:
+  - ai-safety
+status: published
+sources:
+  - title: Azure AI Content Safety documentation
+    url: https://learn.microsoft.com/en-us/azure/ai-services/content-safety/

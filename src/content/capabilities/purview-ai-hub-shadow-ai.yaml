@@ -1,0 +1,17 @@
+title: Purview AI Hub — shadow AI insights
+product: microsoft-purview
+phase: observe
+supportingPhases:
+  - govern
+summary: >-
+  AI Hub surfaces the actual sensitive content that users have pasted into
+  GenAI prompts — names, secrets, source code, regulated data — and links
+  it back to the user, app and DLP policy that should govern it.
+categories:
+  - monitoring
+  - data-protection
+  - ai-safety
+status: published
+sources:
+  - title: Microsoft Purview AI Hub
+    url: https://learn.microsoft.com/en-us/purview/ai-hub-overview

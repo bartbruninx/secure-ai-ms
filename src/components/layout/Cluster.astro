@@ -1,0 +1,40 @@
+---
+type Space = '1' | '2' | '3' | '4' | '5' | '6';
+type Align = 'start' | 'center' | 'end' | 'baseline';
+type Justify = 'start' | 'center' | 'end' | 'between';
+
+interface Props {
+  space?: Space;
+  align?: Align;
+  justify?: Justify;
+  as?: keyof HTMLElementTagNameMap;
+}
+
+const { space = '3', align = 'center', justify = 'start', as: Tag = 'div' } = Astro.props;
+---
+
+<Tag
+  class="cluster"
+  data-align={align}
+  data-justify={justify}
+  style={`--cluster-space: var(--s-${space});`}
+>
+  <slot />
+</Tag>
+
+<style>
+  .cluster {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cluster-space, var(--s-3));
+  }
+  .cluster[data-align="start"]    { align-items: flex-start; }
+  .cluster[data-align="center"]   { align-items: center; }
+  .cluster[data-align="end"]      { align-items: flex-end; }
+  .cluster[data-align="baseline"] { align-items: baseline; }
+
+  .cluster[data-justify="start"]   { justify-content: flex-start; }
+  .cluster[data-justify="center"]  { justify-content: center; }
+  .cluster[data-justify="end"]     { justify-content: flex-end; }
+  .cluster[data-justify="between"] { justify-content: space-between; }
+</style>

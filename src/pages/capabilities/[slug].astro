@@ -1,0 +1,494 @@
+---
+import { getCollection, getEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Container from '../../components/layout/Container.astro';
+import Stack from '../../components/layout/Stack.astro';
+import Cluster from '../../components/layout/Cluster.astro';
+import Grid from '../../components/layout/Grid.astro';
+import Card from '../../components/primitives/Card.astro';
+import Badge from '../../components/primitives/Badge.astro';
+import Breadcrumbs from '../../components/primitives/Breadcrumbs.astro';
+import { PHASE_META } from '../../lib/phases';
+import {
+  base,
+  capabilityHref,
+  productHref,
+  productsIndexHref,
+  scenarioHref,
+} from '../../lib/urls';
+import type { Coverage } from '../../lib/coverage';
+
+export async function getStaticPaths() {
+  const capabilities = await getCollection('capabilities');
+  return capabilities.map((c) => ({
+    params: { slug: c.id },
+    props: { capabilityId: c.id },
+  }));
+}
+
+const { capabilityId } = Astro.props as { capabilityId: string };
+
+const [
+  capability,
+  capabilities,
+  products,
+  vendors,
+  categories,
+  licenses,
+  controls,
+  frameworks,
+  scenarios,
+] = await Promise.all([
+  getEntry('capabilities', capabilityId),
+  getCollection('capabilities'),
+  getCollection('products'),
+  getCollection('vendors'),
+  getCollection('categories'),
+  getCollection('licenses'),
+  getCollection('controls'),
+  getCollection('frameworks'),
+  getCollection('scenarios'),
+]);
+
+if (!capability) throw new Error(`Capability not found: ${capabilityId}`);
+
+const productById = new Map(products.map((p) => [p.id, p]));
+const vendorById = new Map(vendors.map((v) => [v.id, v]));
+const categoryById = new Map(categories.map((c) => [c.id, c]));
+const licenseById = new Map(licenses.map((l) => [l.id, l]));
+const controlById = new Map(controls.map((c) => [c.id, c]));
+const frameworkById = new Map(frameworks.map((f) => [f.id, f]));
+
+const owner = productById.get(capability.data.product.id);
+const vendor = owner ? vendorById.get(owner.data.vendor.id) : undefined;
+
+const capCategories = capability.data.categories
+  .map((ref) => categoryById.get(ref.id))
+  .filter((c): c is NonNullable<typeof c> => Boolean(c));
+
+const capLicenses = capability.data.licenses.map((l) => ({
+  license: licenseById.get(l.license.id),
+  required: l.required,
+  note: l.note,
+}));
+
+const appliesToProducts = capability.data.appliesToProducts
+  .map((ref) => productById.get(ref.id))
+  .filter((p): p is NonNullable<typeof p> => Boolean(p));
+
+// Mappings grouped by framework.
+interface MappingRow {
+  controlId: string;
+  controlTitle: string;
+  controlCode: string;
+  controlLevel: string;
+  coverage: Coverage;
+  note?: string;
+}
+const mappingsByFramework = new Map<string, { framework: typeof frameworks[number]; rows: MappingRow[] }>();
+for (const m of capability.data.mappings) {
+  const control = controlById.get(m.control.id);
+  if (!control) continue;
+  const fw = frameworkById.get(control.data.framework.id);
+  if (!fw) continue;
+  const bucket = mappingsByFramework.get(fw.id) ?? { framework: fw, rows: [] };
+  bucket.rows.push({
+    controlId: control.id,
+    controlTitle: control.data.title,
+    controlCode: control.data.code,
+    controlLevel: control.data.level,
+    coverage: m.coverage,
+    note: m.note,
+  });
+  mappingsByFramework.set(fw.id, bucket);
+}
+
+// Scenarios that include this capability.
+const relatedScenarios = scenarios
+  .filter((s) =>
+    s.data.steps.some((st) => st.capabilities.some((c) => c.id === capability.id)),
+  )
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+// Sibling capabilities of the same product (for "Related").
+const siblings = capabilities
+  .filter((c) => c.data.product.id === capability.data.product.id && c.id !== capability.id)
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+const statusTone = (s: 'published' | 'draft' | 'deprecated') =>
+  s === 'published' ? 'success' : s === 'draft' ? 'warning' : 'neutral';
+
+const coverageTone = (c: Coverage): 'success' | 'warning' | 'info' | 'neutral' => {
+  switch (c) {
+    case 'full': return 'success';
+    case 'partial': return 'warning';
+    case 'enables': return 'info';
+    default: return 'neutral';
+  }
+};
+
+const phaseMeta = PHASE_META[capability.data.phase];
+const accent = phaseMeta.colorVar;
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+};
+
+const phaseHrefLocal = (id: string) => `${base}${id}`;
+---
+
+<BaseLayout
+  title={capability.data.title}
+  description={capability.data.summary ?? `${capability.data.title} — capability detail.`}
+>
+  <Container size="xl">
+    <Breadcrumbs
+      accent={accent}
+      items={[
+        { label: 'Dashboard', href: base },
+        { label: 'Products', href: productsIndexHref() },
+        ...(owner ? [{ label: owner.data.title, href: productHref(owner.id) }] : []),
+        { label: capability.data.title },
+      ]}
+    />
+
+    {/* ── Hero ─────────────────────────────────────────────── */}
+    <section class="hero" style={`--accent: ${accent}`}>
+      <Stack space="3">
+        <h1>{capability.data.title}</h1>
+        {capability.data.summary && <p class="lede">{capability.data.summary}</p>}
+        <Cluster space="2">
+          {owner && (
+            <a class="owner-pill" href={productHref(owner.id)}>
+              <span aria-hidden="true">⌗</span> {owner.data.title}
+            </a>
+          )}
+          {vendor && <Badge size="sm">{vendor.data.title}</Badge>}
+          <Badge size="sm" tone={statusTone(capability.data.status)}>
+            {capability.data.status}
+          </Badge>
+          <a class="phase-pill" href={phaseHrefLocal(capability.data.phase)} style={`--phase-color: ${phaseMeta.colorVar}`}>
+            <span class="phase-dot" aria-hidden="true"></span>
+            {phaseMeta.title}
+          </a>
+          {capability.data.supportingPhases.map((p) => {
+            const m = PHASE_META[p];
+            return (
+              <a class="phase-pill" href={phaseHrefLocal(p)} style={`--phase-color: ${m.colorVar}`}>
+                <span class="phase-dot" aria-hidden="true"></span>
+                +{m.shortLabel}
+              </a>
+            );
+          })}
+        </Cluster>
+      </Stack>
+    </section>
+
+    <Grid min="20rem" space="5">
+      {/* ── Categories ───────────────────────────────────── */}
+      {capCategories.length > 0 && (
+        <Card padding="5">
+          <Stack space="3">
+            <span class="eyebrow">Categories</span>
+            <Cluster space="2">
+              {capCategories.map((c) => <Badge size="sm">{c.data.title}</Badge>)}
+            </Cluster>
+          </Stack>
+        </Card>
+      )}
+
+      {/* ── Licenses required ────────────────────────────── */}
+      {capLicenses.length > 0 && (
+        <Card padding="5">
+          <Stack space="3">
+            <span class="eyebrow">Licensing</span>
+            <ul class="lic-list">
+              {capLicenses.map((row) => (
+                <li>
+                  <Cluster space="2" align="baseline">
+                    {row.license?.data.url ? (
+                      <a href={row.license.data.url} rel="noopener">
+                        {row.license.data.title} ↗
+                      </a>
+                    ) : (
+                      <span>{row.license?.data.title ?? 'unknown license'}</span>
+                    )}
+                    {!row.required && <Badge size="sm" tone="info">optional</Badge>}
+                  </Cluster>
+                  {row.note && <small class="muted">{row.note}</small>}
+                </li>
+              ))}
+            </ul>
+          </Stack>
+        </Card>
+      )}
+
+      {/* ── Applies to products (cross-product) ──────────── */}
+      {appliesToProducts.length > 0 && (
+        <Card padding="5">
+          <Stack space="3">
+            <span class="eyebrow">Governs / monitors</span>
+            <ul class="lic-list">
+              {appliesToProducts.map((p) => (
+                <li>
+                  <a href={productHref(p.id)}>{p.data.title}</a>
+                  {p.data.summary && <small class="muted"> — {p.data.summary}</small>}
+                </li>
+              ))}
+            </ul>
+          </Stack>
+        </Card>
+      )}
+    </Grid>
+
+    {/* ── Framework mappings ───────────────────────────────── */}
+    {mappingsByFramework.size > 0 && (
+      <section class="section" aria-labelledby="mappings-heading">
+        <Stack space="4">
+          <Stack space="1">
+            <span class="eyebrow">Compliance</span>
+            <h2 id="mappings-heading">Framework mappings</h2>
+          </Stack>
+          {[...mappingsByFramework.values()].map(({ framework, rows }) => (
+            <Card padding="5">
+              <Stack space="3">
+                <Cluster space="2" justify="between" align="baseline">
+                  <h3 class="fw-title">{framework.data.title}</h3>
+                  {framework.data.version && (
+                    <Badge size="sm" tone="info">v{framework.data.version}</Badge>
+                  )}
+                </Cluster>
+                <ul class="mapping-list">
+                  {rows.map((row) => (
+                    <li>
+                      <Cluster space="2" align="baseline">
+                        <code class="ctrl-code">{row.controlCode}</code>
+                        <span class="ctrl-title">{row.controlTitle}</span>
+                        <Badge size="sm" tone={coverageTone(row.coverage)}>
+                          {row.coverage}
+                        </Badge>
+                        <Badge size="sm">{row.controlLevel}</Badge>
+                      </Cluster>
+                      {row.note && <small class="muted note">{row.note}</small>}
+                    </li>
+                  ))}
+                </ul>
+              </Stack>
+            </Card>
+          ))}
+        </Stack>
+      </section>
+    )}
+
+    {/* ── Sources ──────────────────────────────────────────── */}
+    {capability.data.sources.length > 0 && (
+      <section class="section" aria-labelledby="sources-heading">
+        <Stack space="3">
+          <Stack space="1">
+            <span class="eyebrow">References</span>
+            <h2 id="sources-heading">Sources</h2>
+          </Stack>
+          <ul class="source-list">
+            {capability.data.sources.map((s) => (
+              <li>
+                <a href={s.url} rel="noopener">
+                  {s.title}
+                  <span class="src-host">{hostOf(s.url)} ↗</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </Stack>
+      </section>
+    )}
+
+    {/* ── Scenarios ────────────────────────────────────────── */}
+    {relatedScenarios.length > 0 && (
+      <section class="section" aria-labelledby="scenarios-heading">
+        <Stack space="3">
+          <Stack space="1">
+            <span class="eyebrow">In use</span>
+            <h2 id="scenarios-heading">
+              Walkthroughs that use this capability
+              <span class="count">({relatedScenarios.length})</span>
+            </h2>
+          </Stack>
+          <Grid min="22rem" space="3">
+            {relatedScenarios.map((s) => (
+              <a class="cap-card-link" href={scenarioHref(s.id)}>
+                <Card padding="4">
+                  <Stack space="2">
+                    <h3 class="cap-title">{s.data.title}</h3>
+                    <p class="cap-summary">"{s.data.question}"</p>
+                  </Stack>
+                </Card>
+              </a>
+            ))}
+          </Grid>
+        </Stack>
+      </section>
+    )}
+
+    {/* ── Related capabilities (same product) ──────────────── */}
+    {siblings.length > 0 && (
+      <section class="section" aria-labelledby="siblings-heading">
+        <Stack space="3">
+          <Stack space="1">
+            <span class="eyebrow">Related</span>
+            <h2 id="siblings-heading">
+              Other capabilities of {owner?.data.title ?? 'this product'}
+              <span class="count">({siblings.length})</span>
+            </h2>
+          </Stack>
+          <Cluster space="2">
+            {siblings.map((c) => (
+              <a class="sib-chip" href={capabilityHref(c.id)}>{c.data.title}</a>
+            ))}
+          </Cluster>
+        </Stack>
+      </section>
+    )}
+
+    {/* ── Back link ────────────────────────────────────────── */}
+    <section class="section">
+      <a class="back" href={owner ? productHref(owner.id) : productsIndexHref()}>
+        ← {owner ? `Back to ${owner.data.title}` : 'All products'}
+      </a>
+    </section>
+  </Container>
+</BaseLayout>
+
+<style>
+  .hero {
+    padding: var(--s-6) 0 var(--s-5);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 {
+    font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .lede {
+    color: var(--fg-muted);
+    font-size: var(--fs-lg);
+    line-height: 1.5;
+    max-width: 60ch;
+    margin: 0;
+  }
+  .owner-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    padding: 2px var(--s-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    color: var(--fg-default);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    text-decoration: none;
+    transition: background var(--dur-fast) var(--ease-out);
+  }
+  .owner-pill:hover { background: var(--bg-surface-2); text-decoration: none; }
+  .phase-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    padding: 2px var(--s-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    color: var(--fg-default);
+    font-size: var(--fs-sm);
+    text-decoration: none;
+    transition: background var(--dur-fast) var(--ease-out);
+  }
+  .phase-pill:hover { background: var(--bg-surface-2); text-decoration: none; }
+  .phase-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--phase-color, var(--accent));
+  }
+
+  .section { padding: var(--s-6) 0; }
+  .eyebrow {
+    color: var(--fg-muted);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  h2 { margin: 0; font-size: var(--fs-xl); }
+  h3.fw-title { margin: 0; font-size: var(--fs-lg); }
+  .count { color: var(--fg-muted); font-weight: var(--fw-regular); margin-left: var(--s-1); }
+
+  .lic-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+  .lic-list li { font-size: var(--fs-sm); }
+  .muted { color: var(--fg-muted); }
+
+  .mapping-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); }
+  .mapping-list li {
+    padding: var(--s-2) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .mapping-list li:last-child { border-bottom: 0; }
+  .ctrl-code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--fs-xs);
+    background: var(--bg-surface-2);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+  }
+  .ctrl-title { font-weight: var(--fw-medium); }
+  .note { display: block; margin-top: var(--s-1); }
+
+  .source-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+  .source-list a {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--s-2);
+    font-size: var(--fs-sm);
+  }
+  .src-host { color: var(--fg-muted); font-size: var(--fs-xs); }
+
+  .cap-card-link { display: block; text-decoration: none; color: inherit; }
+  .cap-card-link:hover { text-decoration: none; }
+  .cap-card-link :global(.card) {
+    transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  }
+  .cap-card-link:hover :global(.card) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px -4px rgb(0 0 0 / 0.12);
+  }
+  .cap-title { margin: 0; font-size: var(--fs-base); font-weight: var(--fw-semibold); }
+  .cap-summary { margin: 0; color: var(--fg-muted); font-size: var(--fs-sm); line-height: 1.5; }
+
+  .sib-chip {
+    display: inline-block;
+    padding: var(--s-1) var(--s-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--fg-default);
+    text-decoration: none;
+    font-size: var(--fs-sm);
+    background: var(--bg-surface);
+    transition: background var(--dur-fast) var(--ease-out);
+  }
+  .sib-chip:hover { background: var(--bg-surface-2); text-decoration: none; }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    color: var(--fg-muted);
+    text-decoration: none;
+    font-size: var(--fs-sm);
+  }
+  .back:hover { color: var(--fg-default); }
+</style>

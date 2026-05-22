@@ -1,3 +1,0 @@
-# Placeholder — collection folders are tracked in git so the schema in
-# `src/content.config.ts` always has a target. Real entries go in here as
-# `.yaml` data files (or `.md` / `.mdx` when narrative content is needed).

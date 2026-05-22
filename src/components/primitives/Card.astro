@@ -1,0 +1,57 @@
+---
+type Variant = 'surface' | 'outlined' | 'subtle';
+type Padding = '3' | '4' | '5' | '6';
+
+interface Props {
+  variant?: Variant;
+  padding?: Padding;
+  as?: keyof HTMLElementTagNameMap;
+  /** Optional accent color (use a CSS var like `var(--phase-protect)`). */
+  accent?: string;
+}
+
+const { variant = 'surface', padding = '5', as: Tag = 'div', accent } = Astro.props;
+---
+
+<Tag
+  class="card"
+  data-variant={variant}
+  style={{
+    '--card-padding': `var(--s-${padding})`,
+    ...(accent ? { '--card-accent': accent } : {}),
+  }}
+>
+  <slot />
+</Tag>
+
+<style>
+  .card {
+    --card-accent: transparent;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--card-padding, var(--s-5));
+    position: relative;
+    transition: border-color var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-fast) var(--ease-out),
+                transform var(--dur-fast) var(--ease-out);
+  }
+
+  .card[data-variant="outlined"] {
+    background: transparent;
+  }
+  .card[data-variant="subtle"] {
+    background: var(--bg-surface-2);
+    border-color: transparent;
+  }
+
+  /* When an accent is provided, render a 2px top stripe matching the token. */
+  .card[style*="--card-accent"]::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: var(--card-accent);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+</style>

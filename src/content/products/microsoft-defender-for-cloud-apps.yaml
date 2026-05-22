@@ -1,0 +1,17 @@
+title: Microsoft Defender for Cloud Apps
+vendor: microsoft
+role: discovery
+primaryPhases:
+  - observe
+summary: >-
+  Cloud-app security broker (CASB) that discovers GenAI apps in use across
+  the workforce, scores their risk and reports who is sending what data to
+  which app. The primary shadow-AI inventory tool.
+url: https://learn.microsoft.com/en-us/defender-cloud-apps/
+categories:
+  - monitoring
+  - ai-safety
+status: published
+sources:
+  - title: Microsoft Defender for Cloud Apps documentation
+    url: https://learn.microsoft.com/en-us/defender-cloud-apps/

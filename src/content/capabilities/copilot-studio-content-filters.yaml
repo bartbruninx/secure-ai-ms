@@ -1,0 +1,15 @@
+title: Content filters
+product: microsoft-copilot-studio
+phase: build
+appliesTo:
+  - maker-tool
+summary: >-
+  Azure AI Content Safety filters every prompt and response for hate,
+  violence, sexual content and self-harm before they reach the user. Filters
+  are on by default and tunable per agent.
+categories:
+  - ai-safety
+status: published
+sources:
+  - title: Configure content moderation in Copilot Studio
+    url: https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-content-moderation

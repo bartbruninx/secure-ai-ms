@@ -1,0 +1,20 @@
+---
+type Space = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
+
+interface Props {
+  space?: Space;
+  as?: keyof HTMLElementTagNameMap;
+}
+
+const { space = '4', as: Tag = 'div' } = Astro.props;
+---
+
+<Tag class="stack" style={`--stack-space: var(--s-${space});`}><slot /></Tag>
+
+<style>
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--stack-space, var(--s-4));
+  }
+</style>

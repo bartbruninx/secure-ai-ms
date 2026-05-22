@@ -1,0 +1,16 @@
+title: Evaluations for safety and quality
+product: azure-ai-foundry
+phase: build
+appliesTo:
+  - maker-tool
+summary: >-
+  Built-in evaluators score an agent on groundedness, relevance and the
+  presence of harmful content over a test set, gating promotion to
+  production on objective safety thresholds rather than vibes.
+categories:
+  - ai-safety
+  - posture-management
+status: published
+sources:
+  - title: Evaluate AI applications in Azure AI Foundry
+    url: https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/develop/evaluate-sdk

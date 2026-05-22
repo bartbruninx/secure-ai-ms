@@ -1,0 +1,63 @@
+---
+type Tone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger' | 'info';
+type Size = 'sm' | 'md';
+
+interface Props {
+  tone?: Tone;
+  size?: Size;
+  /** Override the swatch color with any CSS color value or var. */
+  swatch?: string;
+}
+
+const { tone = 'neutral', size = 'sm', swatch } = Astro.props;
+---
+
+<span
+  class="badge"
+  data-tone={tone}
+  data-size={size}
+  style={swatch ? `--badge-swatch: ${swatch};` : undefined}
+>
+  {swatch && <span class="swatch" aria-hidden="true"></span>}
+  <slot />
+</span>
+
+<style>
+  .badge {
+    --badge-bg: var(--bg-surface-2);
+    --badge-fg: var(--fg-default);
+    --badge-border: var(--border);
+
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: 0.2em 0.6em;
+    border-radius: var(--radius-full);
+    background: var(--badge-bg);
+    color: var(--badge-fg);
+    border: 1px solid var(--badge-border);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+
+  .badge[data-size="md"] {
+    font-size: var(--fs-sm);
+    padding: 0.3em 0.75em;
+  }
+
+  .badge[data-tone="accent"]  { --badge-bg: color-mix(in oklab, var(--accent)         15%, transparent); --badge-border: color-mix(in oklab, var(--accent)         35%, transparent); --badge-fg: var(--accent); }
+  .badge[data-tone="success"] { --badge-bg: color-mix(in oklab, var(--cov-full)       15%, transparent); --badge-border: color-mix(in oklab, var(--cov-full)       35%, transparent); --badge-fg: var(--cov-full); }
+  .badge[data-tone="warning"] { --badge-bg: color-mix(in oklab, var(--cov-partial)    15%, transparent); --badge-border: color-mix(in oklab, var(--cov-partial)    35%, transparent); --badge-fg: var(--cov-partial); }
+  .badge[data-tone="danger"]  { --badge-bg: color-mix(in oklab, var(--phase-respond)  15%, transparent); --badge-border: color-mix(in oklab, var(--phase-respond)  35%, transparent); --badge-fg: var(--phase-respond); }
+  .badge[data-tone="info"]    { --badge-bg: color-mix(in oklab, var(--phase-discover) 15%, transparent); --badge-border: color-mix(in oklab, var(--phase-discover) 35%, transparent); --badge-fg: var(--phase-discover); }
+
+  .swatch {
+    width: 0.55em;
+    height: 0.55em;
+    border-radius: 50%;
+    background: var(--badge-swatch, currentColor);
+    flex-shrink: 0;
+  }
+</style>
